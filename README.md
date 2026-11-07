@@ -80,7 +80,7 @@ Use **Denpex: Inspect GPU Artifact Locally** for Flight Recorder JSON rank dumps
 
 Memory inspection separates requested allocations, awaiting-free blocks and inactive memory per GPU. A large allocation is a contributor, not automatically the cause of an OOM. Checkpoint metadata alone cannot establish a safe resume point.
 
-![Synthetic CUDA memory snapshot inspected by the local Denpex engine](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/diagnosis-memory-snapshot.png)
+![Synthetic CUDA memory snapshot inspected by the local Denpex engine](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/diagnosis-memory-snapshot.png)
 
 Choose cloud review explicitly to save a diagnostic summary to your account. **Denpex: Shared Cloud History** reads the same saved summaries as the website and MCP, including older pages. Local-only results and raw artifact files remain on this machine. Account status shows the server-confirmed email and effective plan; an API key's presence alone does not verify access.
 
