@@ -26,11 +26,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/MisaMisaAI/denpex-vscode.git"
+    "url": "https://github.com/Denpex/denpex-vscode.git"
   },
   "homepage": "https://denpex.com/vscode",
   "bugs": {
-    "url": "https://github.com/MisaMisaAI/denpex-vscode/issues",
+    "url": "https://github.com/Denpex/denpex-vscode/issues",
     "email": "support@denpex.com"
   },
   "galleryBanner": {
