@@ -1,31 +1,216 @@
 # Changelog
 
-## 1.4.44
+## 1.4.58
 
-- Added safe tail-slicing for multi-megabyte training logs in the local offline engine to eliminate buffer limit errors on massive cluster outputs.
+- Update repository, issue tracker and screenshot links to the official Denpex GitHub organization (`https://github.com/Denpex/denpex-vscode`).
+- Expand documentation and GPU reference links in the Support section.
+- Preserve the existing diagnosis behavior and extension artwork.
 
-## 1.4.43
+## 1.4.57
 
-- Added Local GPU Preflight Check (`denpex.runPreflightCheck`) to audit GPU count, compute capability, ECC memory state, /dev/shm shared memory volume, and PyTorch/CUDA driver alignment before training.
-- Added Multi-Rank Log Correlation (`denpex.correlateRankLogs`) to parse multi-node logs concurrently, isolate patient zero ranks, and separate initiating crashes from downstream NCCL timeout cascades.
-- Added In-Editor Diagnostics Provider with editor gutter squiggles and Problems panel integration for traceback crash frames.
-- Added Remediation Action Matrix with one-click copyable environment variables (`TORCH_DISTRIBUTED_DEBUG`, `NCCL_IB_DISABLE`, `PYTORCH_CUDA_ALLOC_CONF`) and inspection commands.
-- Expanded predictive offline signatures for NaN/Inf loss divergence and CUDA device-side assertions.
+- Clarify how to investigate saved training and inference logs alongside Flight Recorder dumps, memory snapshots and host evidence.
+- Add a known-incident evaluation checklist and explain the limits of local diagnosis and synthetic samples.
+- Preserve the existing diagnosis behavior and extension artwork.
 
-## 1.4.42
+## 1.4.56
 
-- Added transparent free/paid architecture positioning to the extension listing.
-- Updated marketplace screenshot links to reliable repository assets to resolve asset loading issues.
-- Synchronized local offline diagnostic engine bundle with latest patterns.
+- Keep device attribution unresolved in offline headlines when identity or timing evidence is incomplete or inconsistent.
+- Use the current shared engine. Cloud monitoring retains investigations during review-capacity and queue outages.
 
-## 1.4.41
+## 1.4.55
 
-- Integrated the verified differential diagnosis engine with candidate cause scoring (supported, contradicted, unconfirmed) and distinguishing test guidance.
-- Added bidirectional 500ms causal tolerance filtering to isolate patient zero faults and suppress secondary NCCL timeout cascades.
-- Updated bundled offline engine with anchor-weighted confidence gating and hardened read-only test verification.
+- Use the current shared diagnosis engine and retain evidence requests across follow-ups.
+- Distinguish a proposed recommendation from observed workload recovery.
+- Include the updated offline engine. Cloud capacity protection and optional secondary challenges run in the shared service.
+
+## 1.4.54
+
+- Keep cited device faults and the final reviewer's requested evidence visible when a proposed root cause is rejected.
+- Let slow cloud investigations try a second Argon account with the same context while retaining the original review window.
+
+## 1.4.53
+- Restore the original grid icon used by the existing VS Code Marketplace and Open VSX listings.
+- Add a packaging check that rejects a different icon or extension identity.
+- Synchronize the workspace's agent download checksum with the verified hosted download.
+- Keep long question labels within narrow panels.
+- Include the 1.4.52 clarification improvements and their release notes below.
+
+## 1.4.52
+
+- Answer clarification questions with three choices or your own text, followed by an explicit Submit answers button.
+- Show the recommended next check first. Questions about what happened never recommend an unobserved answer.
+- Highlight selected answers in orange, with keyboard navigation and readable light, dark and high-contrast styling.
+- Keep connected follow-up questions and new evidence attached to the original incident and conversation.
+- Ask for actual evidence after selecting a check. Choosing a check does not mean it ran or passed.
+- Preserve typed answers and pending evidence when a request needs to be retried or an upload preview is cancelled.
+- Preview and approve cloud follow-up uploads before sending. Local-only mode continues to block cloud uploads.
+- Update the bundled offline engine to share the same clarification contract as the website and API.
+
+## 1.4.51
+
+- Require an editable preview and explicit approval before cloud review, including when the local engine is unavailable.
+- Keep cloud review, copy, feedback and recovery actions attached to the displayed incident.
+- Bring the finding, evidence and next check above detailed remediation. Keep real checkpoint warnings ahead of cloud actions.
+- Preserve a pending incident securely when requesting a company evaluation, with a 24-hour expiry and explicit resumption.
+- Add voluntary local feedback drafts and content-free automated review signals. Accuracy remains unverified until supported by evidence.
+- Respect the editor telemetry setting and remove automatic analytics-consent prompts.
+- Update the shared offline evidence engine and preserve existing Marketplace keywords. The Open VSX package adds Kubernetes.
+
+## 1.4.39
+
+- Add a single-play local-diagnosis GIF near the top of the listing, using real engine output and synthetic logs.
+- Add NCCL to the title and focus two keyword slots on NCCL timeout and log analysis.
+- Offer the protected free web diagnosis flow or account connection after the immediate editor cloud pass.
+
+## 1.4.38
+
+- State free local diagnosis on the first-use screen and distinguish optional cloud and connected plans.
+- Explain that local diagnosis remains free when the optional Team trial ends.
+
+## 1.4.37
+
+- Refresh Marketplace images for the current Console, Fleet queue, cluster map and device inspector.
+- Identify synthetic example telemetry and explain connected-account behavior in screenshot captions.
+
+## 1.4.36
+
+- Hide trial promotion for connected accounts that are not eligible.
+
+- Refresh the selected host's full device details after compact map polling, so identity fields remain available.
+- Keep hover summaries compact on narrow screens; full workload details remain in the inspector.
+
+## 1.4.35
+
+- Put local GPU artifact inspection beside the primary log-input paths.
+- Explain trial email eligibility before starting account onboarding.
+- Separate the Team cloud allowance from live Fleet plan eligibility.
+- Use a neutral optional-cloud action label instead of promising a free review to every account state.
+
+## 1.4.34
+
+- Make Fleet incidents and the GPU host map discoverable from the sidebar.
+- Explain the optional Team evaluation, work-email verification and plan boundaries next to its entry point.
+- Remove the duplicate trial entry from the command palette while preserving its compatibility command.
+- Correct disconnected workspace wording and improve accent text in light editor themes.
+- Include the shared device inspector with signal explanations, default identity and measurements, contextual evidence tools and measured hover positioning.
+
+## 1.4.33
+
+- Add a brief attention pulse followed by a steady highlight, with reduced-motion support.
+- Keep fleet counts and identities derived from telemetry; hide the cluster filter when only one cluster is connected.
+
+
+## 1.4.32
+
+- Restore the transparent Denpex wordmark in light, dark and contrast editor themes.
+- Use the shared Fleet workspace with immediate cached filtering, confirmed search loading states and clearable filters.
+- Add Fleet Atlas host groups, attention focus and GPU evidence drill-down with normal page scrolling.
+- Keep historical hardware report counts separate from live GPU inventory.
+
+
+## 1.4.31
+
+- Replaces incident result pages with a bounded, searchable list and failure-type filters.
+- Searches open incidents across the account and fetches the selected incident's recorded guidance.
+- Adds visible entry points for all seven GPU diagnostics and validates local inspection summaries before preparing Console.
+- Adds saved NCCL benchmark history and measured report detail in the shared workspace.
+- Preserves the R32 engine and recovery evidence safeguards.
+
+## 1.4.30
+
+- Adds the shared fleet hierarchy: clusters, hosts, then GPU cards, with breadcrumbs and direct attention-signal focus.
+- Keeps the complete GPU overview available without pagination or dropping reported devices.
+- Organizes selected-device detail into Summary, Evidence and Metrics sections.
+- Preserves the R32 diagnosis engine, account access, telemetry boundaries and manual Console preparation.
+
+## 1.4.27
+
+- Preserves the audited 1.4.26 R32 engine fixes, allocator compatibility checks, operation intake, missing-evidence states and checkpoint safety qualification.
+- Adds bundled read-only GPU artifact inspection for Flight Recorder JSON, memory snapshots, Nsight SQLite, checkpoint candidates and repeated rank timings.
+- Adds artifact measurement tables and shared cloud history while preserving saved investigations and cloud incident monitoring.
+- Uses server-confirmed account identity and existing plan/trial allowances. Local analysis remains private and account-free.
+
+
+## 1.4.26
+
+- Updated to the shared R32 engine. Checkpoint candidates require integrity and workload-state checks regardless of the recommendation wording.
+- Kept missing distributed and node observations in the needs-evidence state.
+- Preserved negative numerical checks without inventing checkpoint contamination.
+- Required allocator compatibility facts across classification labels and prevented negative ECC/Xid observations from becoming hardware evidence.
+- The 1.4.25 candidate was prepared and locally installed but not published to Marketplace.
+
+## 1.4.25
+
+- Updated the shared R28 engine so a numerical failure alone does not assert that an unsaved checkpoint is contaminated.
+- Kept an earlier verified checkpoint distinct from later numerical failure evidence.
+- Cloud incident history now describes a previous diagnosis without claiming that its recommendation worked.
+- Recognized copied CUDA exception messages without requiring the Python exception class prefix.
+
+## 1.4.24
+
+- Recognized the native CUDA dtype and disconnected-gradient exception wording captured on an RTX 4090.
+- Updated the shared engine identity to R27. The 1.4.23 candidate was prepared but not published to Marketplace.
+
+## 1.4.23
+
+- Updated to the shared R26 operation-evidence engine. Exact operation failures no longer fall through to unrelated framework advice.
+- Preserved manual numerical recovery guidance without claiming an automated check passed.
+- Qualified shared optimizer changes, unknown causes and checkpoint preservation.
+- Kept local diagnosis offline. Cloud and local review remain distinct capabilities.
+
+## 1.4.22
+
+- Added an optional own-incident evaluation entry in account navigation. It opens the existing website journey without uploading a log, connecting a workload or changing local diagnosis.
+- Explained the specific reason for optional cloud review and displayed the recorded missing-fact questions before the handoff. Reopened reports request the original log instead of implying that it was retained.
+- Retained the R25 diagnosis engine and all 1.4.21 local investigation improvements.
+
+## 1.4.21
+
+- Collapsed the large log composer after diagnosis so the report is visible first. The composer remains available for another log or a follow-up.
+- Added a clear distinction between a recommendation and established workload recovery.
+- Separated log submission from compact local follow-ups beneath the report.
+- Added explicit local report save, export, reopen and deletion, with disclosure before writing evidence excerpts to the extension host.
+- Added operator-reported recovery assessments and preserved assessment history, including unsuccessful attempts.
+- Kept generic checkpoint uncertainty secondary for inference reports without hiding actual corruption warnings.
+- Moved account and fleet navigation into a secondary section.
+- Improved narrow layouts, keyboard navigation, light-theme hover fallback and forced-colors styling.
+- Added document titles and corrected sidebar secondary-text contrast.
+
+## 1.4.20
+
+- Updated the shared engine to R25 with specific training-loop and reference-state evidence requests for uncertain numerical failures.
+- Kept version metadata and current download links synchronized with the packaged extension.
+
+## 1.4.19
+
+- Corrected client identity metadata for the R24 package.
+
+## 1.4.18
+
+- Bundled the R24 workload-reference recovery engine.
+
+## 1.4.17
+
+- Aligned packaged diagnosis behavior and remedy qualification with the current shared release.
+
+## 1.4.16
+
+- Displayed remedy applicability, prerequisites and workload recovery checks in diagnosis reports.
+
+## 1.4.15
+
+- Connected accounts receive cloud diagnosis notifications with links to the saved analysis.
+- Persisted notification deduplication separately for each connection. Failed polls retry without losing reports.
+- Updated the offline engine and workload recovery evidence requirements.
 
 ## 1.4.14
 
+- Added Open Console with an in-editor log composer and grounded local follow-ups for cause, evidence, fixes, verification, and checkpoint safety. Follow-ups read recorded findings and never invoke a model.
+- Made an empty workspace log search offer a log file picker or clipboard diagnosis, with a distinct explanation when no project folder is open.
+- Added a responsive console workspace with incident overview cards, investigation navigation, and open evidence and remediation panels.
+- Corrected API client version reporting and refreshed message handlers when reusing the diagnosis tab.
+- Embedded the website's shared Fleet dashboard and Topology map in editor panels. Account reads stay in the extension host; billing, key management and operational changes remain website actions.
+- Kept failed telemetry reads distinct from empty fleets, preserved plan upgrade notices and prevented cluster-bound keys from reading account-wide fleet reports.
 - Replaced the command list in the Denpex sidebar with clear actions for copied logs, editor or terminal output, workspace logs, and bundled samples.
 - Opened local diagnoses in a full editor tab with the likely cause, safety guidance, supporting evidence, and next actions in reading order.
 - Kept run buttons off remediation plans when a checkpoint safety warning is present.
@@ -248,3 +433,6 @@
 - Bundled the canonical deterministic engine for unlimited offline diagnosis.
 - Added local-first engine selection and explicit cloud deep reasoning.
 - Added calibrated confidence, causal-chain, checkpoint-safety, and remediation reporting.
+
+
+
