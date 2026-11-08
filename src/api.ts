@@ -27,6 +27,7 @@ export type FunnelSurface =
     | 'trial'
     | 'pricing'
     | 'dashboard'
+    | 'first_customer'
     // These two predate the helper and were spelled out by hand at their call sites.
     // The names are kept verbatim rather than normalised to the hyphen style above, so
     // that whatever GA4 already recorded against them stays one continuous series.
@@ -63,7 +64,7 @@ export function attribute(url: string, surface: FunnelSurface): string {
  * load it in plain Node). The drift that made it wrong is caught instead by
  * scripts/__tests__/vscode-funnel-parity.test.ts, which fails if the two disagree.
  */
-export const CLIENT_VERSION = '1.4.13';
+export const CLIENT_VERSION = '1.4.58';
 
 export const SITE_URL = 'https://denpex.com';
 export const DASHBOARD_URL = 'https://denpex.com/dashboard';
@@ -83,7 +84,7 @@ export const MAX_LOG_BYTES = 256000;  // server rejects larger logs (400)
 // server went on to answer it successfully and bill the quota unit for it.
 //
 // Shorter logs was also the wrong advice: length is not why the deep tier is slow.
-const REQUEST_TIMEOUT_MS = 300000;
+const REQUEST_TIMEOUT_MS = 600000;
 
 export class ApiError extends Error {
     constructor(message: string, public status?: number, public code?: string) {
@@ -100,6 +101,7 @@ export interface FixPayload {
     fallbackAction?: string | null;
     emergencyAction?: string | null;
     verificationCommand?: string | null;
+    verificationInstructions?: string | null;
     prevention?: string | null;
     steps?: string[];
     alternatives?: Array<{ failureType?: string; title?: string; confidence?: number; evidence?: string[] }>;
@@ -165,7 +167,20 @@ export interface ControlArmReceipt {
 }
 
 export interface DiagnoseResponse {
+    checkpointIntegrity?: { isSafe?: boolean | null; lastSafeCheckpoint?: string | null; status?: string };
+    offlineDecision?: {
+        schemaVersion: number; status: string; candidate: string; acceptedType: string;
+        observations: Array<{ kind: string; line: number; text: string; rank: number | null; role: string }>;
+        hypotheses: Array<{ id: string; explanation: string; supportingLines: number[]; missingEvidence: string[]; assessment?: string }>;
+        nextChecks: string[]; limitations: string[];
+    };
+    teamContinuation?: boolean;
+    qualityReview?: { schemaVersion: number; status: string; flags: string[]; family: string; verification: string };
+    cloudReview?: { originalSummary: string; originalType: string; reviewedType: string; changed: boolean; note: string };
+    localAssessment?: { outcome: 'recovered' | 'failed'; evidence: string; recordedAt: number };
+    localAssessmentHistory?: Array<{ outcome: 'recovered' | 'failed'; evidence: string; recordedAt: number }>;
     success: boolean;
+    initiator?: { rank?: number | null; node?: string | null; line?: string | null; lineNumber?: number };
     /** Surface identity emitted by the bundled engine (for example canonical-offline). */
     source?: string;
     /** Traceable diagnosis-engine build stamp. */
@@ -239,6 +254,16 @@ export interface CloudDiagnosisHistoryRow {
 
 export async function cloudHistory(cursor?: string): Promise<{ history: CloudDiagnosisHistoryRow[]; nextCursor: string | null }> {
     return request('GET', `/api/diagnose/history?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+}
+
+export async function readCloudReport(id: string): Promise<DiagnoseResponse> {
+    if (!/^[a-zA-Z0-9_-]{8,64}$/.test(id)) throw new ApiError('Invalid saved incident identifier.', 400);
+    const value = await request<{ context?: { failureType?: string; confidence?: number; summary?: string; action?: string; verifiedEvidence?: string[]; verificationCommand?: string | null; remedyApplicability?: unknown } }>('GET', `/api/diagnose/report?diagnosisId=${encodeURIComponent(id)}`);
+    const context = value.context;
+    if (!context || typeof context.summary !== 'string') throw new ApiError('The saved report could not be loaded.', 502);
+    return { success: true, diagnosisId: id, source: 'stored-cloud-report', meta: {failureType: context.failureType, confidence: context.confidence},
+      fix: {summary: context.summary, action: context.action, evidence: context.verifiedEvidence || [], verificationCommand: context.verificationCommand || null},
+      ...(context.remedyApplicability ? { forensicReport: { remedyApplicability: context.remedyApplicability } } : {}) } as DiagnoseResponse;
 }
 
 export async function accountStatus(): Promise<{ status: 'connected'; account: { email: string; plan: string }; verifiedAt: number }> {
@@ -341,6 +366,9 @@ function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, token?
         if (key) headers['X-Denpex-Key'] = key;
 
         const lib = url.protocol === 'http:' ? http : https;
+        let deadline: ReturnType<typeof setTimeout> | undefined;
+        let cancellation: vscode.Disposable | undefined;
+        const cleanup = () => { if(deadline)clearTimeout(deadline);cancellation?.dispose(); };
         const req = lib.request({
             hostname: url.hostname,
             port: url.port || undefined,
@@ -356,6 +384,7 @@ function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, token?
             let data = '';
             res.on('data', (chunk) => { data += chunk; });
             res.on('end', () => {
+                cleanup();
                 let parsed: any;
                 try {
                     parsed = JSON.parse(data);
@@ -369,13 +398,16 @@ function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, token?
                     resolve(parsed as T);
                 }
             });
+            res.on('aborted',()=>{cleanup();reject(new ApiError('The connection closed before the complete report arrived. Retry the incident request.',502));});
+            res.on('error',(error)=>{cleanup();reject(new ApiError(String(error.message || error),502));});
         });
 
-        token?.onCancellationRequested(() => req.destroy(new Error('Cancelled')));
+        cancellation=token?.onCancellationRequested(() => req.destroy(new Error('Cancelled')));
+        deadline=setTimeout(()=>req.destroy(new ApiError('The investigation deadline expired before the complete report arrived. Retry later.',504)),REQUEST_TIMEOUT_MS);
         req.on('timeout', () => req.destroy(new ApiError(
-            'The diagnosis provider did not respond within five minutes. Retry later; shortening the log does not fix a provider timeout.',
+            'The diagnosis provider did not respond within the investigation deadline. Retry later; shortening the log does not fix a provider timeout.',504,
         )));
-        req.on('error', (e) => reject(e instanceof ApiError ? e : new ApiError(String((e as Error).message || e))));
+        req.on('error', (e) => {cleanup();reject(e instanceof ApiError ? e : new ApiError(String((e as Error).message || e)));});
 
         if (payload) req.write(payload);
         req.end();
@@ -418,6 +450,11 @@ export async function quota(): Promise<QuotaResponse> {
     };
 }
 
+export interface CloudIncident { id: string; job_name?: string; failure_type?: string; created_at: number; repair_verified?: boolean }
+export function cloudIncidents(): Promise<{ history?: CloudIncident[] }> {
+    return request('GET', '/api/diagnose/history?limit=50');
+}
+
 export function redeem(code: string): Promise<{ success?: boolean; plan?: string; days_remaining?: number; error?: string }> {
     return request('POST', `/api/redeem?code=${encodeURIComponent(code)}`);
 }
@@ -429,4 +466,20 @@ export async function redeemStatus(): Promise<{ active: boolean; plan?: string; 
         plan: raw.trial?.plan ?? raw.base_plan,
         days_remaining: raw.trial?.days_remaining,
     };
+}
+
+export function submitCloudOutcome(diagnosisId: string, outcome: 'worked' | 'did_not_work', note: string): Promise<unknown> {
+    return request('POST', '/api/diagnose/feedback', { diagnosisId, outcome, note });
+}
+
+export function submitCloudCorrection(diagnosisId: string, originalType: string, observation: string): Promise<unknown> {
+    return request('POST', '/api/incident/feedback', { incident_id: diagnosisId, original_diagnosis: originalType, true_root_cause: observation, is_correct: false });
+}
+
+export async function askFollowup(logs: string, diagnosisId: string, question: string, conversationId?: string): Promise<{conversationId: string; reply: FixPayload & {failureType?: string}}> {
+    const result=await request<{conversationId: string; reply: FixPayload & {failureType?: string}}>('POST', '/api/diagnose/chat', {logs,diagnosisId,conversationId,history:[{role:'user',content:question}]});
+    if (!result || typeof result.conversationId !== 'string' || !result.reply || typeof result.reply !== 'object' || Array.isArray(result.reply)) {
+        throw new ApiError('No complete follow-up was returned. Retry this investigation.');
+    }
+    return result;
 }
