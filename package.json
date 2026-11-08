@@ -1,8 +1,8 @@
 {
   "name": "denpex-diagnostics",
-  "displayName": "Denpex: GPU, CUDA & PyTorch ML Crash Diagnostics",
-  "description": "Diagnose GPU errors, CUDA OOM, PyTorch crashes, NCCL hangs, Xid, Slurm and vLLM failures in VS Code. Free offline analysis. No sign-up.",
-  "version": "1.4.44",
+  "displayName": "Denpex: CUDA Out of Memory, PyTorch & NCCL",
+  "description": "Diagnose GPU errors: CUDA out of memory, PyTorch crashes, NCCL timeouts, Xid errors, Slurm and vLLM. Free offline log analysis. No account required.",
+  "version": "1.4.58",
   "publisher": "denpex",
   "icon": "logo.png",
   "pricing": "Free",
@@ -62,8 +62,8 @@
     "distributed-training",
     "gpu-memory",
     "gpu-debugging",
-    "ai-debugger",
-    "llm-debugging",
+    "log-analyzer",
+    "nccl-timeout",
     "fine-tuning",
     "fsdp",
     "ddp",
@@ -176,6 +176,14 @@
         "title": "Denpex: Manage Anonymous Step Counts"
       },
       {
+        "command": "denpex.resumeCloudReview",
+        "title": "Denpex: Return to Saved Incident"
+      },
+      {
+        "command": "denpex.discardPendingReview",
+        "title": "Denpex: Discard Saved Incident"
+      },
+      {
         "command": "denpex.startTrial",
         "title": "Denpex: Request Optional 30-day Team Trial"
       },
@@ -230,6 +238,10 @@
       {
         "command": "denpex.correlateRankLogs",
         "title": "Denpex: Correlate Multi-Rank Cluster Logs (Find Patient Zero)"
+      },
+      {
+        "command": "denpex.resumePendingReview",
+        "title": "Denpex: Resume saved cloud-review incident"
       }
     ],
     "keybindings": [
@@ -402,18 +414,13 @@
           ],
           "default": "auto",
           "markdownDescription": "Which engine answers a diagnose command. **auto** is local-first default (instant, unlimited, offline) with on-demand cloud passes; **local** is unlimited and offline; **cloud** uses cloud deep reasoning."
-        },
-        "denpex.cloud.autoEscalate": {
-          "type": "boolean",
-          "default": false,
-          "description": "After a local diagnosis, automatically run cloud deep reasoning too (uses quota). Off by default so nothing leaves the machine without you asking."
         }
       }
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "node scripts/bundle-engine.js && tsc -p ./",
+    "compile": "node scripts/verify-brand.cjs && node ../../scripts/sync-client-release-identities.mjs vscode && node scripts/bundle-engine.js && node scripts/bundle-workspace.mjs && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "bundle:engine": "node scripts/bundle-engine.js"
   },
