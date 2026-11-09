@@ -1,94 +1,29 @@
-import * as fs from 'fs';
-import * as readline from 'readline';
 import * as vscode from 'vscode';
 
+/** Traceback locations are context, not proof that every source frame is defective. */
 export class DiagnosticsProvider {
-    private diagnosticCollection: vscode.DiagnosticCollection;
-
-    constructor() {
-        this.diagnosticCollection = vscode.languages.createDiagnosticCollection('denpex-tracebacks');
-    }
-
-    public getCollection(): vscode.DiagnosticCollection {
-        return this.diagnosticCollection;
-    }
-
-    /**
-     * Scans log text or a log file for Python tracebacks and populates VS Code diagnostics.
-     */
+    private readonly diagnosticCollection = vscode.languages.createDiagnosticCollection('denpex-tracebacks');
+    private generation = 0;
+    public getCollection(): vscode.DiagnosticCollection { return this.diagnosticCollection; }
     public async parseTracebacksAndPublish(uri: vscode.Uri): Promise<void> {
-        const diagnosticsMap = new Map<string, vscode.Diagnostic[]>();
-
+        const generation = ++this.generation;
         try {
-            const fileStream = fs.createReadStream(uri.fsPath);
-            const rl = readline.createInterface({
-                input: fileStream,
-                crlfDelay: Infinity
+            const document = await vscode.workspace.openTextDocument(uri);
+            const diagnostics: vscode.Diagnostic[] = [];
+            document.getText().split(/\r?\n/).forEach((line, index) => {
+                const match = /File\s+"([^"]+)",\s+line\s+(\d+)(?:,\s+in\s+(.+))?/i.exec(line);
+                if (!match) return;
+                const diagnostic = new vscode.Diagnostic(new vscode.Range(index, 0, index, line.length),
+                    `Traceback context: ${match[1]}:${match[2]}${match[3] ? ` in ${match[3].trim()}` : ''}. This frame does not establish the fault location.`,
+                    vscode.DiagnosticSeverity.Information);
+                diagnostic.source = 'Denpex traceback context';
+                diagnostics.push(diagnostic);
             });
-
-            // Standard Python traceback frame pattern: File "path/to/file.py", line 123, in function_name
-            const frameRegex = /File\s+"([^"]+)",\s+line\s+(\d+)(?:,\s+in\s+(.+))?/i;
-
-            for await (const line of rl) {
-                const match = line.match(frameRegex);
-                if (match) {
-                    const filePath = match[1];
-                    const lineNumber = parseInt(match[2], 10) - 1;
-                    const funcName = match[3] ? match[3].trim() : 'unknown';
-
-                    let targetUri: vscode.Uri;
-                    if (fs.existsSync(filePath)) {
-                        targetUri = vscode.Uri.file(filePath);
-                    } else {
-                        const workspaceFolders = vscode.workspace.workspaceFolders;
-                        if (workspaceFolders && workspaceFolders.length > 0) {
-                            const candidate = vscode.Uri.joinPath(workspaceFolders[0].uri, filePath);
-                            if (fs.existsSync(candidate.fsPath)) {
-                                targetUri = candidate;
-                            } else {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                    }
-
-                    const range = new vscode.Range(
-                        Math.max(0, lineNumber),
-                        0,
-                        Math.max(0, lineNumber),
-                        200
-                    );
-
-                    const diagnostic = new vscode.Diagnostic(
-                        range,
-                        `Python traceback frame in function "${funcName}" (detected from GPU log)`,
-                        vscode.DiagnosticSeverity.Error
-                    );
-                    diagnostic.source = 'Denpex PyTorch Analyzer';
-
-                    const key = targetUri.toString();
-                    if (!diagnosticsMap.has(key)) {
-                        diagnosticsMap.set(key, []);
-                    }
-                    diagnosticsMap.get(key)!.push(diagnostic);
-                }
-            }
-
+            if (generation !== this.generation) return;
             this.diagnosticCollection.clear();
-            for (const [key, diagnostics] of diagnosticsMap.entries()) {
-                this.diagnosticCollection.set(vscode.Uri.parse(key), diagnostics);
-            }
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to parse tracebacks for diagnostics: ${error instanceof Error ? error.message : String(error)}`);
-        }
+            this.diagnosticCollection.set(uri, diagnostics);
+        } catch { /* Unavailable evidence must not interfere with a report. */ }
     }
-
-    public clear(): void {
-        this.diagnosticCollection.clear();
-    }
-
-    public dispose(): void {
-        this.diagnosticCollection.dispose();
-    }
+    public clear(): void { this.generation++; this.diagnosticCollection.clear(); }
+    public dispose(): void { this.generation++; this.diagnosticCollection.dispose(); }
 }

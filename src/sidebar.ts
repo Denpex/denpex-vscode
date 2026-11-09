@@ -50,6 +50,10 @@ export class DenpexSidebarProvider implements vscode.TreeDataProvider<SidebarNod
         };
         this.liveResults.set(id, result);
         const recent = [record, ...this.recent().filter((item) => item.id !== id)].slice(0, MAX_RECENT);
+        const retained = new Set(recent.map(item => item.id));
+        for (const previousId of this.liveResults.keys()) {
+            if (!retained.has(previousId)) this.liveResults.delete(previousId);
+        }
         // Store metadata only. Logs, evidence excerpts, and the diagnosis body remain in
         // memory for the current session and are not written to disk behind the user's back.
         await this.context.globalState.update(RECENT_KEY, recent);
@@ -58,6 +62,16 @@ export class DenpexSidebarProvider implements vscode.TreeDataProvider<SidebarNod
 
     openRecent(id: string): DiagnoseResponse | undefined {
         return this.liveResults.get(id);
+    }
+
+    updateLocal(original: DiagnoseResponse, updated: DiagnoseResponse): void {
+        for (const [id, result] of this.liveResults) {
+            if (result === original) {
+                this.liveResults.set(id, updated);
+                this.refresh();
+                return;
+            }
+        }
     }
 
     getTreeItem(element: SidebarNode): vscode.TreeItem {

@@ -4,7 +4,11 @@ export type SampleFailureId =
     | 'xid-79'
     | 'nccl-interface-mismatch'
     | 'kubernetes-device-plugin'
-    | 'vllm-kv-cache';
+    | 'vllm-kv-cache'
+    | 'torchdynamo-recompile-nccl'
+    | 'moe-hot-expert-alltoall'
+    | 'fp8-amax-nan-saturation'
+    | 'lustre-dstate-checkpoint-stall';
 
 export interface SampleFailure {
     id: SampleFailureId;
@@ -95,6 +99,43 @@ Control: restarting only nvidia-device-plugin-daemonset re-registers the devices
 (EngineCore_DP0 pid=48217) INFO kv_cache_utils.py:760] Maximum concurrency for 32,768 tokens per request: 1.12x
 (EngineCore_DP0 pid=48217) ERROR core.py:412] No available memory for the cache blocks. Try increasing gpu_memory_utilization when initializing the engine.
 ValueError: The model's max seq len (131072) is larger than the maximum number of tokens that can be stored in KV cache (36864). Try increasing gpu_memory_utilization or decreasing max_model_len.`,
+    },
+    {
+        id: 'torchdynamo-recompile-nccl',
+        title: 'TorchDynamo guard recompile → Fake NCCL timeout',
+        description: 'Rank 7 stalls 184s recompiling an unpadded sequence-length tensor while peer ranks time out in NCCL Watchdog.',
+        expectedFailureTypes: ['TORCHDYNAMO_GUARD_FAILURE_RECOMPILE_STORM'],
+        logs: `[2026-11-09 01:14:02] [rank7] [torch._dynamo.guards] Guard failed on L["x"].size()[1] == 4096 (saw 4091)
+[2026-11-09 01:14:02] [rank7] [torch._inductor.compile_fx] Compiling FxGraph #14 via Triton autotuning (blocking CUDA stream on rank 7 for 184.2s)
+[2026-11-09 01:14:03] [rank7] Hit cache_size_limit=8 on dynamic sequence length bucket
+[2026-11-09 01:17:06] [rank0] Watchdog caught collective operation timeout: WorkNCCL(OpType=ALLREDUCE, Timeout(ms)=180000) ran for 180008 ms before timing out
+[2026-11-09 01:17:06] [rank1] Watchdog caught collective operation timeout: WorkNCCL(OpType=ALLREDUCE, Timeout(ms)=180000)`,
+    },
+    {
+        id: 'moe-hot-expert-alltoall',
+        title: 'MoE DeepEP Hot-Expert routing skew (GPU healthy)',
+        description: 'Expert 14 on Rank 14 receives 3.81x token load, stalling ncclKernel_AllToAll on healthy silicon.',
+        expectedFailureTypes: ['MOE_ALLTOALL_HOT_EXPERT_LOAD_IMBALANCE'],
+        logs: `[2026-11-09 01:22:10] [rank14] DeepEP / Megatron-Core MoE Dispatch: Expert 14 on rank 14 received 62,400 tokens (mean=16,384 tokens, 3.81x token routing skew)
+[2026-11-09 01:22:11] [rank14] Grouped GEMM latency on Expert 14 spiked to 412ms (cluster median 108ms); GPU 14 SM occupancy 99.4%, 0 ECC errors, temp 64C
+[2026-11-09 01:22:12] [rank0] ncclKernel_AllToAll stalled 304ms waiting on EP dispatch barrier from rank 14`,
+    },
+    {
+        id: 'fp8-amax-nan-saturation',
+        title: 'FP8 E4M3 amax=448 saturation → 3-Way NaN attribution',
+        description: 'TransformerEngine FP8 delayed scaling clips at 448.0 on healthy silicon (0 ECC DBE).',
+        expectedFailureTypes: ['FP8_MXFP8_AMAX_SCALING_OVERFLOW'],
+        logs: `[2026-11-09 02:01:10] [rank2] TransformerEngine FP8 Recipe: DelayedScaling observedFwdAmax=448.0 (fp8_amax saturation ceiling reached on E4M3)
+[2026-11-09 02:01:11] [rank2] Loss = NaN at step 4120 after FP8 GEMM underflow/overflow; nvidia-smi reports 0 Uncorrectable ECC DBE and 0 Xid events`,
+    },
+    {
+        id: 'lustre-dstate-checkpoint-stall',
+        title: 'Lustre D-state checkpoint stall → Fake NCCL hang',
+        description: 'Rank 0 blocks in TASK_UNINTERRUPTIBLE waiting on Lustre OST metadata while Ranks 1 to 63 time out.',
+        expectedFailureTypes: ['STORAGE', 'STORAGE_BACKPRESSURE_DISAMBIGUATOR', 'LUSTRE_METADATA_BOTTLENECK'],
+        logs: `[2026-11-09 02:05:11] [rank0] Saving distributed checkpoint to /lustre/scratch/ckpt_step_5000.pt
+[2026-11-09 02:06:40] kernel: INFO: task pt_main_thread:44120 blocked for more than 120 seconds in TASK_UNINTERRUPTIBLE (D-state) on LustreError llite_file_write / OST metadata lock
+[2026-11-09 02:08:11] [rank1] Watchdog caught collective operation timeout: WorkNCCL(OpType=BARRIER, Timeout(ms)=180000) waiting on rank 0`,
     },
 ] as const;
 

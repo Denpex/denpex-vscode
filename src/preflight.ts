@@ -10,6 +10,7 @@ export interface GpuInfo {
     driverVersion: string;
     computeCapability: string;
     eccEnabled: boolean;
+    eccStatus: 'enabled' | 'disabled' | 'unsupported' | 'unknown';
     memoryTotalMb: number;
 }
 
@@ -30,7 +31,7 @@ export interface PreflightReport {
     checks: PreflightCheckItem[];
 }
 
-export async function runPreflightChecks(): Promise<PreflightReport> {
+export async function runPreflightChecks(pythonPath?: string): Promise<PreflightReport> {
     const checks: PreflightCheckItem[] = [];
     const gpus: GpuInfo[] = [];
     let shmSizeMb: number | null = null;
@@ -40,17 +41,20 @@ export async function runPreflightChecks(): Promise<PreflightReport> {
         const { stdout } = await execFile('nvidia-smi', [
             '--query-gpu=name,driver_version,compute_cap,ecc.mode.current,memory.total',
             '--format=csv,noheader,nounits'
-        ]);
+        ], { timeout: 10000, maxBuffer: 1024 * 1024, windowsHide: true });
         const lines = stdout.trim().split('\n').filter(Boolean);
         for (const line of lines) {
             const parts = line.split(',').map(p => p.trim());
             if (parts.length >= 5) {
                 const eccEnabled = parts[3].toLowerCase() === 'enabled' || parts[3].toLowerCase() === 'on';
+                const eccStatus: GpuInfo['eccStatus'] = /geforce/i.test(parts[0]) || /not supported|n\/a/i.test(parts[3]) ? 'unsupported'
+                    : eccEnabled ? 'enabled' : /disabled|off/i.test(parts[3]) ? 'disabled' : 'unknown';
                 gpus.push({
                     name: parts[0],
                     driverVersion: parts[1],
                     computeCapability: parts[2],
                     eccEnabled,
+                    eccStatus,
                     memoryTotalMb: parseInt(parts[4], 10) || 0
                 });
             }
@@ -65,27 +69,27 @@ export async function runPreflightChecks(): Promise<PreflightReport> {
             });
 
             // Check ECC status
-            const nonEccGpus = gpus.filter(g => !g.eccEnabled);
+            const nonEccGpus = gpus.filter(g => g.eccStatus === 'disabled' || g.eccStatus === 'unknown');
             if (nonEccGpus.length > 0) {
                 checks.push({
                     id: 'gpu-ecc',
                     title: 'GPU ECC Status',
                     status: 'warn',
-                    message: `${nonEccGpus.length} GPU(s) have ECC disabled. Bit flips may cause silent corruption in long training runs.`
+                    message: `${nonEccGpus.length} GPU(s) report ECC disabled or unknown. Check model support before changing settings. This is not a diagnosis of a hardware fault.`
                 });
             } else {
                 checks.push({
                     id: 'gpu-ecc',
                     title: 'GPU ECC Status',
                     status: 'pass',
-                    message: 'ECC is enabled on all detected GPUs.'
+                    message: 'ECC is enabled where reported, or unavailable on this GPU model. Saved-log analysis does not require ECC.'
                 });
             }
         } else {
             checks.push({
                 id: 'gpu-detection',
                 title: 'NVIDIA GPU Detection',
-                status: 'fail',
+                status: 'warn',
                 message: 'nvidia-smi executed but returned no GPUs.'
             });
         }
@@ -94,7 +98,7 @@ export async function runPreflightChecks(): Promise<PreflightReport> {
             id: 'gpu-detection',
             title: 'NVIDIA GPU Detection',
             status: 'warn',
-            message: 'nvidia-smi not found or failed to execute. Ensure NVIDIA drivers are installed on this node.',
+            message: 'GPU inspection was unavailable on this extension host. Saved-log diagnosis still works without a local GPU or NVIDIA drivers.',
             details: error instanceof Error ? error.message : String(error)
         });
     }
@@ -142,12 +146,12 @@ export async function runPreflightChecks(): Promise<PreflightReport> {
     }
 
     // 3. PyTorch & CUDA version alignment probe via python
-    const pythonCmd = os.platform() === 'win32' ? 'python' : 'python3';
+    const pythonCmd = pythonPath || (os.platform() === 'win32' ? 'python' : 'python3');
     try {
         const { stdout } = await execFile(pythonCmd, [
             '-c',
             'import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())'
-        ]);
+        ], { timeout: 15000, maxBuffer: 1024 * 1024, windowsHide: true });
         const [torchVer, cudaVer, cudaAvail] = stdout.trim().split('\n').map(s => s.trim());
         const isAvailable = cudaAvail === 'True';
 
@@ -171,7 +175,7 @@ export async function runPreflightChecks(): Promise<PreflightReport> {
             id: 'pytorch-cuda',
             title: 'PyTorch & CUDA Alignment',
             status: 'warn',
-            message: `Could not probe PyTorch environment via ${pythonCmd}.`,
+            message: `Could not probe PyTorch via ${pythonCmd}. Select your training interpreter or set denpex.pythonPath. Saved-log diagnosis does not require PyTorch.`,
             details: error instanceof Error ? error.message : String(error)
         });
     }
@@ -183,7 +187,7 @@ export async function runPreflightChecks(): Promise<PreflightReport> {
         CUDA_VISIBLE_DEVICES: process.env.CUDA_VISIBLE_DEVICES
     };
 
-    if (!envVars.NCCL_DEBUG) {
+    if (!envVars.NCCL_DEBUG && gpus.length > 1 && os.platform() === 'linux') {
         checks.push({
             id: 'env-nccl',
             title: 'Environment: NCCL_DEBUG',
@@ -195,7 +199,7 @@ export async function runPreflightChecks(): Promise<PreflightReport> {
             id: 'env-nccl',
             title: 'Environment: NCCL_DEBUG',
             status: 'pass',
-            message: `NCCL_DEBUG is set to "${envVars.NCCL_DEBUG}".`
+            message: envVars.NCCL_DEBUG ? `NCCL_DEBUG is set to "${envVars.NCCL_DEBUG}".` : 'NCCL debug logging is optional and not required for saved-log analysis.'
         });
     }
 

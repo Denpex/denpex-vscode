@@ -2,7 +2,7 @@
   "name": "denpex-diagnostics",
   "displayName": "Denpex: CUDA Out of Memory, PyTorch & NCCL",
   "description": "Diagnose GPU errors: CUDA out of memory, PyTorch crashes, NCCL timeouts, Xid errors, Slurm and vLLM. Free offline log analysis. No account required.",
-  "version": "1.4.58",
+  "version": "1.4.59",
   "publisher": "denpex",
   "icon": "logo.png",
   "pricing": "Free",

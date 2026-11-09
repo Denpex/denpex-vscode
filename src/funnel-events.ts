@@ -6,7 +6,10 @@ export type ExtensionFunnelEvent =
     | 'consent_granted'
     | 'sample_result'
     | 'own_log_result'
+    | 'cloud_preview_opened'
+    | 'cloud_review_approved'
     | 'cloud_result'
+    | 'further_cloud_requested'
     | 'team_trial_requested'
     | 'account_connected';
 
@@ -23,12 +26,14 @@ function sentEvents(context: vscode.ExtensionContext): ExtensionFunnelEvent[] {
     const value = context.globalState.get<unknown>(SENT_KEY, []);
     return Array.isArray(value) ? value.filter((event): event is ExtensionFunnelEvent =>
         event === 'consent_granted' || event === 'sample_result' || event === 'own_log_result'
+        || event === 'cloud_preview_opened' || event === 'cloud_review_approved' || event === 'further_cloud_requested'
         || event === 'cloud_result' || event === 'team_trial_requested' || event === 'account_connected') : [];
 }
 
 function sendCount(event: ExtensionFunnelEvent): Promise<boolean> {
     // An on-prem or user-supplied API endpoint must never silently send usage
     // information to Denpex. Counts are only for the hosted Denpex product.
+    if (vscode.env.isTelemetryEnabled !== true) return Promise.resolve(false);
     if (apiBase().replace(/\/$/, '') !== 'https://api.denpex.com') return Promise.resolve(false);
     const body = JSON.stringify({ schemaVersion: 1, event, clientVersion: CLIENT_VERSION });
     return new Promise((resolve) => {
@@ -55,7 +60,7 @@ export async function recordExtensionFunnelEvent(
     event: ExtensionFunnelEvent,
     sender: (event: ExtensionFunnelEvent) => Promise<boolean> = sendCount,
 ): Promise<boolean> {
-    if (consent(context) !== 'allowed' || sentEvents(context).includes(event) || inFlight.has(event)) return false;
+    if (vscode.env.isTelemetryEnabled !== true || consent(context) !== 'allowed' || sentEvents(context).includes(event) || inFlight.has(event)) return false;
     inFlight.add(event);
     try {
         if (!await sender(event)) return false;
@@ -69,19 +74,7 @@ export async function offerExtensionFunnelConsent(
     context: vscode.ExtensionContext,
     sender: (event: ExtensionFunnelEvent) => Promise<boolean> = sendCount,
 ): Promise<boolean> {
-    const existing = consent(context);
-    if (existing) return existing === 'allowed';
-    const choice = await vscode.window.showInformationMessage(
-        'Help improve Denpex? Share anonymous counts of completed sample, own-log, cloud, Team-trial, and account-connection steps. No logs, email addresses, file paths, or machine details are sent. Optional and off until you allow it.',
-        'Allow anonymous counts', 'No thanks', 'Privacy policy',
-    );
-    if (choice === 'Privacy policy') void vscode.env.openExternal(vscode.Uri.parse(PRIVACY_URL));
-    const allowed = choice === 'Allow anonymous counts';
-    await context.globalState.update(CONSENT_KEY, allowed ? 'allowed' : 'declined');
-    if (allowed) {
-        void recordExtensionFunnelEvent(context, 'consent_granted', sender);
-    }
-    return allowed;
+    return vscode.env.isTelemetryEnabled === true && consent(context) === 'allowed';
 }
 
 export async function manageExtensionFunnelConsent(context: vscode.ExtensionContext): Promise<void> {

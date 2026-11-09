@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.59
+
+- Align the investigation console and sidebar styling with the Denpex dashboard theme (`#151515` canvas, `#1C1C1C` cards, and terracotta `#D6795C` accents).
+- Add the False-Blame Shield banner when local diagnosis exonerates physical GPU silicon and RDMA fabrics on TorchDynamo recompile stalls, MoE hot-expert routing skew, FP8 amax overflow, or parallel filesystem checkpoint stalls.
+- Promote local GPU artifact inspection (`denpex_artifacts.py`) to a top-level action card and synchronize the bundled offline engine (`2026.11.09+frontier-22-r1`).
+- Preserve the existing extension identity and published grid icon.
+
 ## 1.4.58
 
 - Update repository, issue tracker and screenshot links to the official Denpex GitHub organization (`https://github.com/Denpex/denpex-vscode`).

@@ -2,7 +2,7 @@
 
 [![Offline Engine](https://img.shields.io/badge/Offline%20Engine-100%25%20Local-success)](https://denpex.com/vscode)
 [![Privacy](https://img.shields.io/badge/Privacy-Zero%20Code%20Upload-blue)](https://denpex.com/privacy)
-[![Current release](https://img.shields.io/badge/Current%20release-v1.4.58-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
+[![Current release](https://img.shields.io/badge/Current%20release-v1.4.59-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
 
 Select a GPU error log. See the supporting evidence, likely cause, and what to check next, without leaving VS Code.
 

@@ -26,8 +26,14 @@ function parseEccCounters(nvidiaSmiQ: string | null): Record<string, string> {
     grab('singleBitAggregate', /Single Bit\s*(?:ECC)?[\s\S]{0,200}?Aggregate[\s\S]{0,80}?Total\s*:\s*(\S+)/i);
     grab('retiredPagesDoubleBit', /Double Bit ECC\s*:\s*(\d+)/i);
     grab('pendingPageRetirement', /Pending Page (?:Blacklist|Retirement)\s*:\s*(\S+)/i);
+    grab('remappedRowsCorrectable', /Correctable Error\s*:\s*(\d+)/i);
     grab('remappedRowsUncorrectable', /Uncorrectable Error\s*:\s*(\d+)/i);
     grab('remappedRowsPending', /Pending\s*:\s*(Yes|No)/i);
+    grab('remappedRowsFailure', /Remapping Failure Occurred\s*:\s*(Yes|No)/i);
+    grab('remappedBanksActive', /Active Remappings\s*:\s*(\d+)/i);
+    grab('remappedBanksPending', /Bank Remapper[\s\S]{0,160}?Pending\s*:\s*(Yes|No)/i);
+    grab('sramThresholdExceeded', /SRAM Threshold Exceeded\s*:\s*(Yes|No)/i);
+    grab('hwPowerBrakeSlowdown', /HW Power Brake Slowdown\s*:\s*(Active|Not Active)/i);
     return out;
 }
 
@@ -48,17 +54,18 @@ function extractXidLines(dmesg: string | null, logs?: string): string[] {
 
 export async function generateRmaPayload(lastDiagnosis?: DiagnoseResponse, lastLogs?: string): Promise<Record<string, unknown>> {
     const isLinux = process.platform === 'linux';
-    const [gpuCsv, smiQuery, dmesg, topo, dmidecode] = await Promise.all([
-        run('nvidia-smi', ['--query-gpu=index,name,serial,uuid,pci.bus_id,driver_version,vbios_version,memory.total', '--format=csv,noheader']),
-        run('nvidia-smi', ['-q', '-d', 'ECC,ROW_REMAPPER,TEMPERATURE,CLOCK']),
+    const [gpuCsv, smiQuery, remappedRowsCsv, dmesg, topo, dmidecode] = await Promise.all([
+        run('nvidia-smi', ['--query-gpu=index,name,serial,uuid,pci.bus_id,driver_version,vbios_version,memory.total,pci.replay_counter', '--format=csv,noheader']),
+        run('nvidia-smi', ['-q', '-d', 'ECC,ROW_REMAPPER,TEMPERATURE,CLOCK,POWER']),
+        run('nvidia-smi', ['--query-remapped-rows=gpu_uuid,remapped_rows.correctable,remapped_rows.uncorrectable,remapped_rows.pending,remapped_rows.failure', '--format=csv,noheader']),
         isLinux ? run('bash', ['-lc', 'dmesg -T 2>/dev/null | grep -iE "xid|nvrm|ecc|nvlink|pcie|aer" | tail -80']) : Promise.resolve(null),
         isLinux ? run('nvidia-smi', ['topo', '-m']) : Promise.resolve(null),
         isLinux ? run('bash', ['-lc', 'sudo -n dmidecode -s system-serial-number 2>/dev/null || echo "Requires sudo or dmidecode not installed"']) : Promise.resolve(null),
     ]);
 
     const gpus = (gpuCsv || '').split('\n').filter(Boolean).map((line) => {
-        const [index, name, serial, uuid, pciBusId, driverVersion, vbios, memory] = line.split(',').map((s) => s.trim());
-        return { index, name, serial, uuid, pciBusId, driverVersion, vbios, memory };
+        const [index, name, serial, uuid, pciBusId, driverVersion, vbios, memory, pciReplayCounter] = line.split(',').map((s) => s.trim());
+        return { index, name, serial, uuid, pciBusId, driverVersion, vbios, memory, pciReplayCounter: pciReplayCounter || '0' };
     });
 
     const engineRma = lastDiagnosis?.forensicReport?.vendorRmaPayload;
@@ -78,6 +85,7 @@ export async function generateRmaPayload(lastDiagnosis?: DiagnoseResponse, lastL
         xidEvents: extractXidLines(dmesg, lastLogs),
         rawTelemetry: {
             nvidiaSmiQuery: smiQuery ? smiQuery.slice(0, 20000) : null,
+            remappedRowsCsv: remappedRowsCsv ? remappedRowsCsv.slice(0, 5000) : null,
             nvlinkTopology: topo ? topo.slice(0, 10000) : null,
             dmesgExcerpt: dmesg ? dmesg.slice(0, 10000) : null,
         }, ...(lastDiagnosis?.meta?.failureType ? {

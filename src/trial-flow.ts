@@ -69,10 +69,67 @@ function postJson(urlStr: string, body: Record<string, unknown>): Promise<{ ok: 
     });
 }
 
+export interface ExtensionTrialRequestInterpretation {
+    kind: 'sent' | 'pending' | 'error';
+    message: string;
+    recordFunnel: boolean;
+}
+
+export function interpretExtensionTrialRequestResult(
+    res: { ok: boolean; status: number; data: any },
+    email: string,
+): ExtensionTrialRequestInterpretation {
+    const data = res?.data && typeof res.data === 'object' ? res.data : {};
+    const state = String(data.state || data.status || '').trim().toLowerCase();
+    const reason = String(data.reason || '').trim().toLowerCase();
+    const serverMessage = typeof data.message === 'string' ? data.message.trim() : '';
+    const throttled = data.throttled === true || state === 'throttled' || reason === 'throttled';
+    const isDeferred =
+        throttled ||
+        state === 'pending_delivery' ||
+        state === 'verification_pending' ||
+        reason === 'pending_delivery' ||
+        reason === 'verification_pending';
+
+    if (res.ok && data.ok !== false) {
+        if (isDeferred || data.sent === false) {
+            return {
+                kind: 'pending',
+                message:
+                    serverMessage ||
+                    'Your 30-day Datacenter evaluation request (up to 50 diagnoses/day) is queued or rate-limited. Wait a few minutes before retrying, or contact support@denpex.com. Local diagnosis remains available.',
+                recordFunnel: true,
+            };
+        }
+        return {
+            kind: 'sent',
+            message:
+                `Check ${email.trim()} for your 30-day Datacenter evaluation link (up to 50 diagnoses/day) and sign in with that same address to finish verification automatically. After activation, choose Connect Account here. No card or automatic subscription. Local diagnosis remains available.`,
+            recordFunnel: true,
+        };
+    }
+
+    if (res.status === 429 || res.status >= 500 || isDeferred || state === 'error') {
+        return {
+            kind: 'pending',
+            message:
+                serverMessage ||
+                'Could not issue a 30-day Datacenter trial right now. Please retry shortly or contact support@denpex.com. Local diagnosis remains available.',
+            recordFunnel: false,
+        };
+    }
+
+    return {
+        kind: 'error',
+        message: serverMessage || data.error || `Request failed (HTTP ${res.status})`,
+        recordFunnel: false,
+    };
+}
+
 export async function startInEditorTrialFlow(_context: vscode.ExtensionContext): Promise<boolean> {
     const email = await vscode.window.showInputBox({
-        title: 'Try Team Free for 30 Days',
-        prompt: 'Enter your work email for a single-use link. Established company domains can activate after verification, regardless of mail provider. No card. Uncertain domains can request review.',
+        title: 'Try Datacenter Free for 30 Days (50 Diagnoses/Day)',
+        prompt: 'Enter your work email for a verification link (30 days, up to 50 diagnoses/day). Established company domains can activate after verification, regardless of mail provider. No card or auto-renewal. Uncertain domains can request review.',
         placeHolder: 'alex@yourcompany.com',
         ignoreFocusOut: true,
         validateInput: (val) => {
@@ -81,7 +138,7 @@ export async function startInEditorTrialFlow(_context: vscode.ExtensionContext):
                 return 'Enter a valid email address (e.g. name@company.com)';
             }
             if (isConsumerDomain(trimmed)) {
-                return 'Team evaluations require a work email domain (e.g. @company.com, not @gmail.com)';
+                return 'Datacenter evaluations require a work email domain (e.g. @company.com, not @gmail.com)';
             }
             return null;
         },
@@ -94,7 +151,7 @@ export async function startInEditorTrialFlow(_context: vscode.ExtensionContext):
     try {
         res = await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: 'Requesting Denpex Team evaluation...',
+            title: 'Requesting Denpex 30-day Datacenter evaluation...',
             cancellable: false,
         }, async () => postJson(endpoint, { email: email.trim(), source: 'vscode-extension' }));
     } catch (err: any) {
@@ -102,24 +159,41 @@ export async function startInEditorTrialFlow(_context: vscode.ExtensionContext):
         return false;
     }
 
-    if (!res.ok) {
-        const msg = res.data?.message || res.data?.error || `Request failed (HTTP ${res.status})`;
-        void vscode.window.showErrorMessage(`Denpex: ${msg}`);
+    const outcome = interpretExtensionTrialRequestResult(res, email);
+
+    if (outcome.kind === 'error') {
+        void vscode.window.showErrorMessage(`Denpex: ${outcome.message}`);
         return false;
     }
 
-    void recordExtensionFunnelEvent(_context, 'team_trial_requested');
+    if (outcome.recordFunnel) {
+        void recordExtensionFunnelEvent(_context, 'team_trial_requested');
+    }
+
+    if (outcome.kind === 'pending') {
+        void vscode.window.showInformationMessage(
+            `Denpex: ${outcome.message}`,
+            'Open Redeem Page', 'Connect Account',
+        ).then((choice) => {
+            if (choice === 'Connect Account') {
+                void vscode.commands.executeCommand('denpex.connectAccount');
+            } else if (choice === 'Open Redeem Page') {
+                void vscode.env.openExternal(vscode.Uri.parse(attribute(REDEEM_URL, 'trial')));
+            }
+        });
+        return outcome.recordFunnel;
+    }
 
     void vscode.window.showInformationMessage(
-        `Check ${email.trim()} for your trial link and sign in with that same address. After activation, choose Connect Account here. No card or automatic subscription. Local diagnosis remains available.`,
+        outcome.message,
         'Connect Account', 'Activation help',
     ).then((choice) => {
         if (choice === 'Connect Account') {
             void vscode.commands.executeCommand('denpex.connectAccount');
         } else if (choice === 'Activation help') {
-            void vscode.window.showInformationMessage('Open your emailed link within 7 days of the first request. Company verification is required; uncertain domains need support review. For an expired link or review, contact support@denpex.com.', 'Open Redeem Page').then((action) => {
+            void vscode.window.showInformationMessage('Open your emailed link within 7 days and submit the code on the redeem page to verify your work email. Established company domains activate 30 days of Datacenter (up to 50 diagnoses/day) automatically; uncertain domains are queued for support review. For an expired link or review, contact support@denpex.com.', 'Open Redeem Page').then((action) => {
                 if (action === 'Open Redeem Page') {
-            void vscode.env.openExternal(vscode.Uri.parse(attribute(REDEEM_URL, 'trial')));
+                    void vscode.env.openExternal(vscode.Uri.parse(attribute(REDEEM_URL, 'trial')));
                 }
             });
         }
