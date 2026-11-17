@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.4.65
+
+- Version aligned with the Denpex browser extension 1.4.65. No functional changes in the editor extension.
+
+## 1.4.64
+
+- **New command: Denpex: Run Fleet Diagnostic on Current File.** Open (or select) output from gpud, gpu-burn/DCGM, nvbandwidth/perftest, py-spy, nvitop/nvtop, HTA traces, genai-perf/vLLM bench, hwloc/lstopo, LBNL NHC, SuperBench, dynolog, memray/Scalene, hf-mem/torchsnapshot or nccl-tests. Denpex detects the tool and opens a report beside the file, worst findings first. The output is sent to Denpex for analysis; nothing is sent when Denpex: Engine is set to Local only. A free account covers nvitop/nvtop, lstopo and hf-mem; Team and higher plans cover all 14. If the file is a crash log instead, the command offers normal diagnosis.
+- Preserve the existing extension identity and published grid icon.
+
+## 1.4.63
+
+- **Clearer vLLM "No available memory for the cache blocks" reports.** When vLLM states both numbers (for example, max seq len 131072 against a KV cache that holds 36864 tokens), the report now names them, cites the startup KV-cache measurements as evidence, and gives two concrete paths: lower `--max-model-len` to fit the measured cache, or add cache capacity with `--tensor-parallel-size` or spare GPU memory. The read-only check now lists GPU memory and the other processes holding it, instead of a generic GPU inventory.
+- The evidence summary reads "1 matched line" and "1 causal event" instead of "1 matched lines".
+- New gallery images and demo captured from this version.
+- Preserve the existing extension identity and published grid icon.
+
+## 1.4.62
+
+- **Send a diagnosis to Slack.** Every report has a **Send to Slack** button, and there is a new command: **Denpex: Send Diagnosis to Slack**. The first time, Slack's own screen asks you to add Denpex and pick the channel. You see the message before it is posted. Only the summary is sent (what failed, where it started, the fix and the cost), straight from your editor to Slack: the log itself is not sent and nothing passes through Denpex. The channel address is kept in VS Code's secret storage; **Denpex: Stop Posting to Slack** removes it. Nothing is sent when Denpex: Engine is set to Local only.
+- **Rank map and crash cost.** When a log comes from a multi-GPU job, the report now shows a grid of every rank, marking the one that failed and the ones that only timed out waiting, and, when the log states the world size and the timeout, the GPU-hours the crash burned. Both are computed on your machine from the log. Single-GPU logs are unchanged.
+- Preserve the existing extension identity and published grid icon.
+
+## 1.4.61
+
+- **Use Denpex in Slack.** Every report now has a "Use Denpex in Slack" section with an **Add Denpex to Slack** button, and there is a new command: **Denpex: Add to Slack**. In Slack, anyone on your team can choose Diagnose with Denpex from a message's More actions menu and get the answer in that message's thread. It is free and needs no account. Slack diagnosis runs on Denpex servers, not in your editor; nothing from your editor is sent when you click the button.
+- Synchronize the bundled offline engine (`2026.11.12+no-invented-facts-r2`). Answers about newer GPU hardware no longer state facts the log does not contain.
+- In the Fleet view, pod hexagons no longer cover the pod subtitle.
+- Preserve the existing extension identity and published grid icon.
+
+## 1.4.60
+
+- Remove decompiled `nvidia-smi` reference data from the bundled offline engine.
+- **Finish the free Team trial without leaving VS Code.** Enter your work email, paste the code we email you, and your account, trial and editor connection are set up in place. No browser step, no card. New command: **Denpex: Finish Trial with Emailed Code**.
+- **Your one free cloud review goes where it helps.** When the local engine is unsure, the report offers a free AI review prominently. When it is confident, a quiet "second opinion" link is shown instead.
+- **A free review is only spent when it runs.** If the AI review does not finish, or today's free capacity is used up, you get the engine's answer and keep your free review.
+- **First run:** one click shows a full diagnosis of a sample GPU crash, offline, in seconds.
+- **Shorter command list:** duplicate and internal commands are hidden from the Command Palette (still reachable from the sidebar and menus).
+- Synchronize the bundled offline engine (`2026.11.11+homepage-review-r4`). A bare CUDA `invalid argument` error now asks for the failing call (re-run with `CUDA_LAUNCH_BLOCKING=1`) instead of answering with high confidence.
+- Healthy fabric lines such as `fabric clean; no NCCL error` and zero counts such as `0 Uncorrectable ECC` are no longer read as hardware faults, and a plain Ray object-store error is no longer attributed to RLHF without RLHF evidence in the log.
+- GPUs identified by PCI address (for example `GPU 0000:9b:00.0`) are named by that address instead of as GPU 0.
+- Preserve the existing extension identity and published grid icon.
+
 ## 1.4.59
 
 - Align the investigation console and sidebar styling with the Denpex dashboard theme (`#151515` canvas, `#1C1C1C` cards, and terracotta `#D6795C` accents).

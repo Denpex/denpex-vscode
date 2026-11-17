@@ -1,6 +1,8 @@
 import * as https from 'https';
 import * as http from 'http';
 import * as vscode from 'vscode';
+import type { LogInsights } from './log-insights';
+import type { FleetDiagnosticResult } from './fleet-report';
 
 /**
  * Funnel attribution for every link this extension opens on denpex.com.
@@ -28,6 +30,7 @@ export type FunnelSurface =
     | 'pricing'
     | 'dashboard'
     | 'first_customer'
+    | 'slack'
     // These two predate the helper and were spelled out by hand at their call sites.
     // The names are kept verbatim rather than normalised to the hyphen style above, so
     // that whatever GA4 already recorded against them stays one continuous series.
@@ -64,13 +67,14 @@ export function attribute(url: string, surface: FunnelSurface): string {
  * load it in plain Node). The drift that made it wrong is caught instead by
  * scripts/__tests__/vscode-funnel-parity.test.ts, which fails if the two disagree.
  */
-export const CLIENT_VERSION = '1.4.59';
+export const CLIENT_VERSION = '1.4.65';
 
 export const SITE_URL = 'https://denpex.com';
 export const DASHBOARD_URL = 'https://denpex.com/dashboard';
 export const PRICING_URL = 'https://denpex.com/pricing';
 export const REDEEM_URL = 'https://denpex.com/redeem';
 export const PRIVACY_URL = 'https://denpex.com/privacy';
+export const SLACK_URL = 'https://denpex.com/slack';
 
 export const MIN_LOG_CHARS = 6;       // terse machine events such as Xid 79 are valid
 export const MAX_LOG_BYTES = 256000;  // server rejects larger logs (400)
@@ -167,6 +171,8 @@ export interface ControlArmReceipt {
 }
 
 export interface DiagnoseResponse {
+    /** Rank map and crash cost, computed on this machine from the diagnosed log. */
+    logInsights?: LogInsights;
     checkpointIntegrity?: { isSafe?: boolean | null; lastSafeCheckpoint?: string | null; status?: string };
     offlineDecision?: {
         schemaVersion: number; status: string; candidate: string; acceptedType: string;
@@ -436,6 +442,11 @@ export function diagnose(
         logs,
         jobName, ...(topologyMap && Object.keys(topologyMap).length > 1 ? { topologyMap } : {}),
     }, token);
+}
+
+/** GPU Fleet Command Suite: the API detects the tool ("auto") and enforces the plan. */
+export function fleetDiagnostic(input: string, token: vscode.CancellationToken): Promise<FleetDiagnosticResult> {
+    return request<FleetDiagnosticResult>('POST', '/api/tools/fleet-diagnostics', { toolId: 'auto', input }, token);
 }
 
 export async function quota(): Promise<QuotaResponse> {

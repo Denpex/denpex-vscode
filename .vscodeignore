@@ -1,7 +1,7 @@
 # What NOT to ship inside the .vsix.
 #
 # There was no .vscodeignore, so every package included src/, node_modules/, the
-# tsconfig, and — worst — the seven previously built .vsix files sitting in this
+# tsconfig, and the seven previously built .vsix files sitting in this
 # directory, each of which contained the ones before it. The published artifact was
 # carrying its own history.
 #
@@ -12,6 +12,7 @@
 .vscode/**
 .vscode-test/**
 src/**
+webview/**
 node_modules/**
 **/*.map
 **/*.ts
@@ -23,6 +24,10 @@ package-lock.json
 pnpm-lock.yaml
 **/*.vsix
 .audit/**
+
+# Internal rationale for the keyword list. Useful to us, meaningless to a user who
+# downloaded the extension, and it would ship in every .vsix.
+KEYWORDS.md
 
 # Build tooling. scripts/bundle-engine.js runs at COMPILE time to copy the engine in;
 # shipping it to users puts a script that reads paths outside the extension into every

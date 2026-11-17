@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
 import type { DiagnoseResponse } from './api';
+import { computeLogInsights } from './log-insights';
 
 /**
  * The offline diagnosis engine, running inside the extension host.
@@ -147,7 +148,8 @@ export function diagnoseLocally(
                 }
                 try {
                     const parsed = JSON.parse(stdout) as DiagnoseResponse;
-                    resolve(parsed);
+                    const logInsights = computeLogInsights(logs);
+                    resolve(logInsights ? { ...parsed, logInsights } : parsed);
                 } catch {
                     reject(new LocalEngineError('The local engine returned output this build could not read.'));
                 }

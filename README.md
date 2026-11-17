@@ -2,7 +2,7 @@
 
 [![Offline Engine](https://img.shields.io/badge/Offline%20Engine-100%25%20Local-success)](https://denpex.com/vscode)
 [![Privacy](https://img.shields.io/badge/Privacy-Zero%20Code%20Upload-blue)](https://denpex.com/privacy)
-[![Current release](https://img.shields.io/badge/Current%20release-v1.4.59-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
+[![Current release](https://img.shields.io/badge/Current%20release-v1.4.65-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
 
 Select a GPU error log. See the supporting evidence, likely cause, and what to check next, without leaving VS Code.
 
@@ -10,9 +10,9 @@ Investigate CUDA out-of-memory errors, NCCL timeouts, PyTorch crashes, NVIDIA Xi
 
 **Local diagnosis is free, unlimited, and offline. No account, API key, or separate Node.js installation required.**
 
-![Denpex Console demonstrating a synthetic rank-3 OOM diagnosis and supporting peer-timeout evidence](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.39/local-diagnosis-demo.gif)
+![Denpex Console demonstrating a synthetic rank-3 OOM diagnosis and supporting peer-timeout evidence](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.63/local-diagnosis-demo.gif)
 
-A short, single-play demonstration of the actual Console renderer and shipped local engine on a bundled synthetic log. No LLM or live customer cluster is used. [View the still image](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.39/local-diagnosis-demo.png).
+A short, single-play demonstration of the actual Console renderer and shipped local engine on a bundled synthetic log. No LLM or live customer cluster is used. [View the still image](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.63/local-diagnosis-demo.png).
 
 ### Where the answers come from
 
@@ -59,25 +59,25 @@ The report separates an initiating failure from downstream symptoms when the log
 
 The report leads with the likely cause, checkpoint safety when relevant, and recommended actions. Expand the evidence and causal chain to see how Denpex reached its conclusion. If the logs do not establish a cause, the report identifies what evidence is missing.
 
-![Current Denpex Console with a local vLLM diagnosis, likely cause and evidence](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.37/diagnosis-vllm-kv-cache.png)
+![Current Denpex Console with a local vLLM diagnosis, likely cause and evidence](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.63/diagnosis-vllm-kv-cache.png)
 
 Captured from the current extension's Console renderer after running its bundled synthetic vLLM log through the shipped offline engine. The report shows evidence and suggested checks, not proof of workload recovery.
 
 ### Inspect incidents in Fleet
 
-![Denpex extension Fleet with an incident queue and selected incident details](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.37/fleet.png)
+![Denpex extension Fleet with an incident queue and selected incident details](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.63/fleet.png)
 
 Search incidents, select a result and review the recorded guidance beside the queue. This capture uses the actual compiled extension workspace with synthetic example telemetry.
 
 ### Find the affected host on the map
 
-![Denpex extension Topology map with three clusters, 384 GPUs, a red fault and an orange inspection signal](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.37/topology.png)
+![Denpex extension Topology map with three clusters, 384 GPUs, a red fault and an orange inspection signal](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.63/topology.png)
 
 The map groups reported hosts by cluster and fits the available fleet. Select a host to inspect its GPUs. Red and orange signals identify devices to investigate; they do not establish the root cause.
 
 ### Inspect exact device identity and evidence
 
-![Selected host GPU cards and inspector showing the example GPU UUID, PCI address, temperature and reason for inspection](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.37/topology-device.png)
+![Selected host GPU cards and inspector showing the example GPU UUID, PCI address, temperature and reason for inspection](https://raw.githubusercontent.com/Denpex/denpex-vscode/main/screenshots/v1.4.63/topology-device.png)
 
 The inspector connects device identity, reported measurements and the next evidence step. These Fleet and Topology captures use synthetic example records, not a live customer cluster. Connected users see their account's reported inventory and measurements. Accounts without telemetry see setup instructions. VS Code theme and panel size can change the appearance.
 
@@ -149,7 +149,7 @@ Cloud review sends the selected log to Denpex. It is optional; local diagnosis s
 For regular cloud use:
 
 - **Existing eligible account:** run **Denpex: Connect Account**, approve your editor's short code in the browser, then return to VS Code. No API-key copying.
-- **New team:** request a **30-day Datacenter trial** inside VS Code with your work email. Open the emailed link before its stated expiry, sign in with that exact address to finish verification automatically. Pending verification or review does not activate a trial. Eligible trials include up to 50 cloud diagnoses a day and saved history, with no card or automatic subscription. Then use **Connect Account**.
+- **New team:** run **Denpex: Start Free 30-Day Team Trial** and enter your work email. Paste the code we email you into VS Code: your account and trial are set up and this editor is connected, with no browser step. Pending review does not activate a trial; once approved, run **Denpex: Finish Trial with Emailed Code** again. Eligible trials include up to 50 cloud diagnoses a day and saved history, with no card or automatic subscription.
 
 Company-domain verification applies. If automatic verification fails, contact support@denpex.com for review. You can keep using the local engine while waiting.
 

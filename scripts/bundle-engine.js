@@ -23,7 +23,19 @@ const extRoot = path.resolve(here, '..');
 const repoRoot = path.resolve(extRoot, '..', '..');
 
 const DEST_DIR = path.join(extRoot, 'engine');
+const evidenceSource = path.join(repoRoot, 'worker', 'offline-evidence-decision.ts');
+if (fs.existsSync(evidenceSource)) {
+  require('esbuild').buildSync({ entryPoints: [evidenceSource], outfile: path.join(DEST_DIR, 'denpex_evidence.cjs'),
+    bundle: true, platform: 'node', format: 'cjs', target: 'node18', legalComments: 'none' });
+} else if (!fs.existsSync(path.join(DEST_DIR, 'denpex_evidence.cjs'))) {
+  throw new Error('Missing shared offline evidence module. Rebuild the complete extension.');
+}
 const ASSETS = [
+  {
+    name: 'denpex_artifacts.py',
+    source: path.join(repoRoot, 'agent', 'denpex_artifacts.py'),
+    purpose: 'read-only local GPU artifact inspection',
+  },
   {
     name: 'denpex_canonical.mjs',
     source: path.join(repoRoot, 'agent', 'denpex_canonical.mjs'),

@@ -2,7 +2,7 @@
   "name": "denpex-diagnostics",
   "displayName": "Denpex: CUDA Out of Memory, PyTorch & NCCL",
   "description": "Diagnose GPU errors: CUDA out of memory, PyTorch crashes, NCCL timeouts, Xid errors, Slurm and vLLM. Free offline log analysis. No account required.",
-  "version": "1.4.59",
+  "version": "1.4.65",
   "publisher": "denpex",
   "icon": "logo.png",
   "pricing": "Free",
@@ -90,6 +90,10 @@
       {
         "command": "denpex.inspectGpuArtifact",
         "title": "Denpex: Inspect GPU Artifact Locally"
+      },
+      {
+        "command": "denpex.fleetDiagnostic",
+        "title": "Denpex: Run Fleet Diagnostic on Current File"
       },
       {
         "command": "denpex.connectAccount",
@@ -185,7 +189,11 @@
       },
       {
         "command": "denpex.startTrial",
-        "title": "Denpex: Request Optional 30-day Team Trial"
+        "title": "Denpex: Start Free 30-Day Team Trial (Work Email)"
+      },
+      {
+        "command": "denpex.finishTrial",
+        "title": "Denpex: Finish Trial with Emailed Code"
       },
       {
         "command": "denpex.generateRma",
@@ -206,6 +214,18 @@
       {
         "command": "denpex.openDashboard",
         "title": "Denpex: Open Cloud Dashboard"
+      },
+      {
+        "command": "denpex.addToSlack",
+        "title": "Denpex: Add to Slack"
+      },
+      {
+        "command": "denpex.sendToSlack",
+        "title": "Denpex: Send Diagnosis to Slack"
+      },
+      {
+        "command": "denpex.disconnectSlack",
+        "title": "Denpex: Stop Posting to Slack"
       },
       {
         "command": "denpex.startInEditorTrial",
@@ -242,6 +262,10 @@
       {
         "command": "denpex.resumePendingReview",
         "title": "Denpex: Resume saved cloud-review incident"
+      },
+      {
+        "command": "denpex.trialConnected",
+        "title": "Denpex: Refresh After Trial Activation"
       }
     ],
     "keybindings": [
@@ -277,6 +301,76 @@
           "command": "denpex.diagnoseCurrentLogs",
           "when": "view == denpex.sidebar",
           "group": "navigation@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "denpex.diagnoseCurrentLogs",
+          "when": "false"
+        },
+        {
+          "command": "denpex.diagnoseSelection",
+          "when": "false"
+        },
+        {
+          "command": "denpex.diagnoseLastFailure",
+          "when": "false"
+        },
+        {
+          "command": "denpex.sample.ncclOom",
+          "when": "false"
+        },
+        {
+          "command": "denpex.sample.xid79",
+          "when": "false"
+        },
+        {
+          "command": "denpex.sample.interfaceMismatch",
+          "when": "false"
+        },
+        {
+          "command": "denpex.sample.kubernetesPlugin",
+          "when": "false"
+        },
+        {
+          "command": "denpex.sample.vllmKvCache",
+          "when": "false"
+        },
+        {
+          "command": "denpex.walkthrough.inspectCausality",
+          "when": "false"
+        },
+        {
+          "command": "denpex.walkthrough.inspectFix",
+          "when": "false"
+        },
+        {
+          "command": "denpex.manageAnalytics",
+          "when": "false"
+        },
+        {
+          "command": "denpex.resumeCloudReview",
+          "when": "false"
+        },
+        {
+          "command": "denpex.discardPendingReview",
+          "when": "false"
+        },
+        {
+          "command": "denpex.resumePendingReview",
+          "when": "false"
+        },
+        {
+          "command": "denpex.startInEditorTrial",
+          "when": "false"
+        },
+        {
+          "command": "denpex.redeemCode",
+          "when": "false"
+        },
+        {
+          "command": "denpex.trialConnected",
+          "when": "false"
         }
       ]
     },
@@ -350,13 +444,15 @@
           },
           {
             "id": "denpex.firstDiagnosis.trial",
-            "title": "5. Optional: request a 30-day Team trial",
-            "description": "Local diagnosis stays free. For optional cloud access, request a trial with your work email, activate it, then connect.\n[Request a Team trial](command:denpex.startInEditorTrial)\n[Connect an existing eligible account](command:denpex.connectAccount)",
+            "title": "5. Optional: start a free 30-day Team trial",
+            "description": "Local diagnosis stays free. For cloud AI review, enter your work email and paste the emailed code here. No browser, no card.\n[Start the free Team trial](command:denpex.startTrial)\n[Connect an existing eligible account](command:denpex.connectAccount)",
             "media": {
               "markdown": "walkthroughs/05-trial.md"
             },
             "completionEvents": [
-              "onCommand:denpex.startInEditorTrial"
+              "onCommand:denpex.startTrial",
+              "onCommand:denpex.startInEditorTrial",
+              "onCommand:denpex.finishTrial"
             ]
           }
         ]

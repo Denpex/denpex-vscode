@@ -6,10 +6,11 @@ import { savePendingReview, readPendingReview, clearPendingReview } from './pend
 import { prepareLocalFeedback, submitObservedCloudFeedback } from './local-feedback';
 import { ClipboardCoordinator } from './clipboard-coordinator';
 import { inspectGpuArtifact } from './artifacts';
+import { runFleetDiagnosticOnCurrentFile } from './fleet-diagnostic';
 import { connectAccount, disconnectAccount } from './connect';
 import {
     ApiError, DiagnoseResponse, MAX_LOG_BYTES, MIN_LOG_CHARS,
-    DASHBOARD_URL, PRICING_URL, REDEEM_URL, PRIVACY_URL, SITE_URL, attribute,
+    DASHBOARD_URL, PRICING_URL, REDEEM_URL, PRIVACY_URL, SITE_URL, SLACK_URL, attribute,
     apiBase, apiKey, askFollowup, diagnose, initializeApiKey, quota, redeem, redeemStatus, storeApiKey, cloudHistory, accountStatus, readCloudReport,
 } from './api';
 import { generateIncidentMarkdown, showDiagnosisPanel } from './panel';
@@ -25,9 +26,10 @@ import { DenpexTerminalLinkProvider } from './terminal-links';
 import { answerLocalFollowUp } from './local-follow-up';
 import { saveInvestigation, chooseSavedInvestigation } from './saved-investigations';
 import { openWorkspace } from './workspace';
+import { disconnectSlackShare, initSlackShare, sendDiagnosisToSlack } from './slack-share';
 import { manageExtensionFunnelConsent, offerExtensionFunnelConsent, recordExtensionFunnelEvent } from './funnel-events';
 import {
-    consumeFreeCloudDiagnosis, getRemainingFreeCloudDiagnoses, startInEditorTrialFlow,
+    consumeFreeCloudDiagnosis, finishTrialInEditor, getRemainingFreeCloudDiagnoses, startInEditorTrialFlow,
 } from './trial-flow';
 
 let monitor: PredictiveMonitor | undefined;
@@ -51,6 +53,7 @@ const FIRST_RUN_AHA_KEY = 'denpex.firstRunAha.v1';
 
 export async function activate(context: vscode.ExtensionContext) {
     extContext = context;
+    initSlackShare(context);
     await readPendingReview(context);
     await vscode.commands.executeCommand('setContext', 'denpex.ownLogDiagnosed', false);
     try {
@@ -116,6 +119,7 @@ export async function activate(context: vscode.ExtensionContext) {
         const evidence = await inspectGpuArtifact(context);
         if (evidence) await runLocalDiagnosisWithProgress(evidence, 'gpu-artifact');
     });
+    register('denpex.fleetDiagnostic', runFleetDiagnosticOnCurrentFile);
     register('denpex.cloudHistory', async () => {
         if (!apiKey()) {
             void vscode.window.showInformationMessage('Connect your Denpex account to read shared cloud history. Local results stay on this machine.');
@@ -218,7 +222,7 @@ export async function activate(context: vscode.ExtensionContext) {
     register('denpex.showStatusBarMenu', async () => {
         const remaining = extContext ? getRemainingFreeCloudDiagnoses(extContext) : 0;
         const hasKey = Boolean(apiKey());
-        const cloudLabel = hasKey ? 'Plan Quota Active' : `${remaining} free passes remaining`;
+        const cloudLabel = hasKey ? 'Plan Quota Active' : `${remaining} free cloud ${remaining === 1 ? 'pass' : 'passes'} left`;
 
         const picked = await vscode.window.showQuickPick([
             { label: '$(clippy) Paste & Diagnose Clipboard', description: 'Ctrl+Alt+D / Cmd+Alt+D', cmd: 'denpex.diagnoseClipboard' },
@@ -226,7 +230,7 @@ export async function activate(context: vscode.ExtensionContext) {
             { label: '$(search) Scan Workspace for Slurm/Cluster Logs', description: 'Find slurm-*.out and GPU error logs', cmd: 'denpex.scanClusterLogs' },
             { label: '$(cloud) Run Cloud Deep Reasoning', description: cloudLabel, cmd: 'denpex.diagnoseCloud' },
             { label: '$(beaker) Try a Demo Failure', description: 'NCCL OOM cascade, Xid 79, vLLM cache', cmd: 'denpex.runSample' },
-            { label: '$(rocket) Try Team Free for 30 Days', description: 'Enter your work email in VS Code; activate from the emailed link', cmd: 'denpex.startInEditorTrial' },
+            { label: '$(rocket) Try Team Free for 30 Days', description: 'Work email + emailed code, all inside VS Code', cmd: 'denpex.startTrial' },
             { label: '$(account) Connect Account', description: 'Approve in your browser; no API key copying', cmd: 'denpex.connectAccount' },
             ...(hasKey ? [{ label: '$(sign-out) Disconnect Account', description: 'Revoke this credential; keep local diagnosis', cmd: 'denpex.disconnectAccount' }] : []),
             { label: '$(key) Set API Key (advanced)', description: 'For self-hosted endpoints or manual setup', cmd: 'denpex.setApiKey' },
@@ -396,6 +400,13 @@ export async function activate(context: vscode.ExtensionContext) {
     register('denpex.startTrial', async () => {
         if (extContext) await startInEditorTrialFlow(extContext);
     });
+    register('denpex.finishTrial', async () => {
+        if (extContext) await finishTrialInEditor(extContext);
+    });
+    register('denpex.trialConnected', async () => {
+        sidebarProvider?.refresh();
+        void refreshStatusBar();
+    });
     register('denpex.connectAccount', async () => {
         await connectAccount(context);
         sidebarProvider?.refresh();
@@ -498,6 +509,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
     register('denpex.openPricing', () => vscode.env.openExternal(vscode.Uri.parse(attribute(PRICING_URL, 'pricing'))));
     register('denpex.openDashboard', () => vscode.env.openExternal(vscode.Uri.parse(attribute(DASHBOARD_URL, 'dashboard'))));
+    register('denpex.addToSlack', () => vscode.env.openExternal(vscode.Uri.parse(attribute(SLACK_URL, 'slack'))));
+    register('denpex.sendToSlack', () => sendDiagnosisToSlack(lastDiagnosis));
+    register('denpex.disconnectSlack', () => disconnectSlackShare());
     register('denpex.generateRma', () => runGenerateRmaCommand(lastDiagnosis, lastLogs));
 
     // Declarative editor-title menus cannot inspect document contents. Maintain one
@@ -520,6 +534,14 @@ export async function activate(context: vscode.ExtensionContext) {
     if (!context.globalState.get<boolean>(FIRST_RUN_AHA_KEY, false)) {
         await context.globalState.update(FIRST_RUN_AHA_KEY, true);
         void vscode.commands.executeCommand('workbench.view.extension.denpex');
+        // One offer, once: see a real diagnosis in seconds before deciding anything.
+        void vscode.window.showInformationMessage(
+            'Denpex is ready. See it find the first failing rank in a sample GPU crash, offline, in a few seconds.',
+            'Try a sample crash', 'Diagnose my own log',
+        ).then((choice) => {
+            if (choice === 'Try a sample crash') void vscode.commands.executeCommand('denpex.sample.ncclOom');
+            else if (choice === 'Diagnose my own log') void vscode.commands.executeCommand('denpex.diagnoseClipboard');
+        });
     }
     return {
         refreshCloudIncidents: () => cloudMonitor.pollNow(),
@@ -715,7 +737,18 @@ async function escalateToCloud(logs: string, _jobName: string, _topology?: Recor
                 if (token.isCancellationRequested || generation !== incidentGeneration) return;
                 incidentLogs.set(reviewed, approved);
                 if (original) { reviewed.cloudReview = assessmentComparison(original, reviewed, approved !== logs); precedingReports.set(reviewed, original); }
-                if (anonymous && extContext) await consumeFreeCloudDiagnosis(extContext);
+                // Spend the free review only when an AI review actually ran.
+                const capacityReached = (reviewed as { cloudCapacityReached?: boolean }).cloudCapacityReached === true;
+                const reviewRan = !capacityReached
+                    && (reviewed as { fix?: { routeDiagnostics?: { modelReview?: string } } }).fix?.routeDiagnostics?.modelReview !== 'unavailable';
+                if (anonymous && extContext && reviewRan) await consumeFreeCloudDiagnosis(extContext);
+                if (anonymous && !reviewRan) {
+                    void vscode.window.showInformationMessage(capacityReached
+                        ? 'Denpex: today\'s free AI review capacity is used up, so this is the engine\'s answer alone. Your free review was not used; try again after 00:00 UTC, or start the free work-email trial.'
+                        : 'Denpex: the AI review did not finish, so this is the engine\'s answer alone. Your free review was not used.',
+                        ...(capacityReached ? ['Start free trial'] : []),
+                    ).then((choice) => { if (choice === 'Start free trial') void vscode.commands.executeCommand('denpex.startTrial'); });
+                }
                 lastDiagnosis = reviewed; lastLogs = approved; openPanel(reviewed);
                 if (extContext) { await clearPendingReview(extContext).catch(() => undefined); void recordExtensionFunnelEvent(extContext, 'cloud_result'); }
                 void refreshStatusBar();
@@ -883,6 +916,9 @@ function openPanel(result?: DiagnoseResponse, focusSection?: string, preparedTex
                 if (message.text) await vscode.env.clipboard.writeText(message.text);
                 vscode.window.setStatusBarMessage('Denpex: copied to clipboard', 2000);
                 break;
+            case 'sendToSlack':
+                await sendDiagnosisToSlack(result);
+                break;
             case 'copyIncidentReport':
                 if (result) {
                     const md = generateIncidentMarkdown(result);
@@ -1001,8 +1037,8 @@ async function refreshStatusBar(): Promise<void> {
     if (!apiKey()) {
         const remaining = extContext ? getRemainingFreeCloudDiagnoses(extContext) : 0;
         if (remaining > 0) {
-            statusItem.text = `Denpex: Local · ${remaining} Cloud Passes`;
-            statusItem.tooltip = `Denpex: Unlimited Local Engine Active · ${remaining} free Cloud Deep Reasoning passes remaining. Click for menu.`;
+            statusItem.text = `Denpex: Local · ${remaining} Free Cloud ${remaining === 1 ? 'Review' : 'Reviews'}`;
+            statusItem.tooltip = `Denpex: Unlimited Local Engine Active · ${remaining} free cloud ${remaining === 1 ? 'review' : 'reviews'} left. Click for menu.`;
         } else if (localEngineAvailable()) {
             statusItem.text = 'Denpex: Local Engine';
             statusItem.tooltip =

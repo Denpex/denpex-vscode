@@ -124,7 +124,7 @@ ValueError: The model's max seq len (131072) is larger than the maximum number o
         id: 'fp8-amax-nan-saturation',
         title: 'FP8 E4M3 amax=448 saturation → 3-Way NaN attribution',
         description: 'TransformerEngine FP8 delayed scaling clips at 448.0 on healthy silicon (0 ECC DBE).',
-        expectedFailureTypes: ['FP8_MXFP8_AMAX_SCALING_OVERFLOW'],
+        expectedFailureTypes: ['FP8_MXFP8_AMAX_SCALING_OVERFLOW', 'FP8_ATTRIBUTION'],
         logs: `[2026-11-09 02:01:10] [rank2] TransformerEngine FP8 Recipe: DelayedScaling observedFwdAmax=448.0 (fp8_amax saturation ceiling reached on E4M3)
 [2026-11-09 02:01:11] [rank2] Loss = NaN at step 4120 after FP8 GEMM underflow/overflow; nvidia-smi reports 0 Uncorrectable ECC DBE and 0 Xid events`,
     },
@@ -132,7 +132,7 @@ ValueError: The model's max seq len (131072) is larger than the maximum number o
         id: 'lustre-dstate-checkpoint-stall',
         title: 'Lustre D-state checkpoint stall → Fake NCCL hang',
         description: 'Rank 0 blocks in TASK_UNINTERRUPTIBLE waiting on Lustre OST metadata while Ranks 1 to 63 time out.',
-        expectedFailureTypes: ['STORAGE', 'STORAGE_BACKPRESSURE_DISAMBIGUATOR', 'LUSTRE_METADATA_BOTTLENECK'],
+        expectedFailureTypes: ['STORAGE_IO_STALL', 'STORAGE', 'STORAGE_BACKPRESSURE_DISAMBIGUATOR', 'LUSTRE_METADATA_BOTTLENECK'],
         logs: `[2026-11-09 02:05:11] [rank0] Saving distributed checkpoint to /lustre/scratch/ckpt_step_5000.pt
 [2026-11-09 02:06:40] kernel: INFO: task pt_main_thread:44120 blocked for more than 120 seconds in TASK_UNINTERRUPTIBLE (D-state) on LustreError llite_file_write / OST metadata lock
 [2026-11-09 02:08:11] [rank1] Watchdog caught collective operation timeout: WorkNCCL(OpType=BARRIER, Timeout(ms)=180000) waiting on rank 0`,

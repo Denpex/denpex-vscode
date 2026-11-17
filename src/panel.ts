@@ -1,7 +1,8 @@
 import { clarificationChoices } from './clarification-contract';
 import * as vscode from 'vscode';
 import { DENPEX_WORDMARK_HTML, DENPEX_WORDMARK_CSS } from './brand';
-import { DASHBOARD_URL, SITE_URL, attribute, DiagnoseResponse } from './api';
+import { LOG_INSIGHTS_CSS, renderLogInsightsHtml } from './log-insights';
+import { DASHBOARD_URL, SITE_URL, SLACK_URL, attribute, DiagnoseResponse } from './api';
 
 export function escapeHtml(value: unknown): string {
     return String(value ?? '')
@@ -66,6 +67,24 @@ function actionBlock(label: string, command: string | null | undefined, kind: 'e
     const copy = unavailable ? '' : `<button type="button" class="btn ghost" data-cmd="copy" data-text="${escapeHtml(command)}">Copy</button>`;
     const body = kind === 'exec' ? pre(command) : `<p class="action-copy">${escapeHtml(command)}</p>`;
     return `<div class="action"><div class="action-head"><strong>${escapeHtml(label)}</strong><span class="btns">${btns}${copy}</span></div>${body}</div>`;
+}
+
+/** Below this calibrated confidence the local answer is treated as unsure. */
+const CONFIDENT_LOCAL_ANSWER = 60;
+
+/**
+ * Is the local answer one a cloud review could materially improve? Uses only what the
+ * engine reports: no named failure, open questions, evidence requests, or a low or
+ * withheld-low calibrated confidence.
+ */
+export function localAnswerIsUnsure(d: any, meta: any, fix: any, questionCount: number): boolean {
+    const failureType = String(meta?.failureType || d?.failureType || '').trim().toUpperCase();
+    if (!failureType || /^(UNKNOWN|NEEDS_|NO_FAULT|INSUFFICIENT)/.test(failureType)) return true;
+    if (questionCount > 0) return true;
+    if (d?.awaitingEvidence === true || fix?.awaitingEvidence === true || d?.provisional === true) return true;
+    if (d?.forensicReport?.remedyApplicability?.status === 'needs-evidence') return true;
+    if (typeof fix?.confidenceDisplay === 'number') return fix.confidenceDisplay < CONFIDENT_LOCAL_ANSWER;
+    return /low/i.test(String(fix?.confidenceBand || ''));
 }
 
 function confidenceBar(confidence: number): string {
@@ -193,12 +212,19 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
         ? 'More facts are needed to distinguish the remaining causes. A cloud review can reassess the supplied evidence, but incomplete logs may still require a specific diagnostic check.'
         : 'Use another review if this recommendation does not fit your installed stack or the attempted change did not resolve the failure. Include the relevant versions and what happened after the attempt.';
     const cloudPurposeHtml=`<p class="meta">${escapeHtml(cloudPurpose)}</p>${cloudQuestions.length?`<ul>${cloudQuestions.map(question=>`<li>${escapeHtml(question)}</li>`).join('')}</ul>`:''}<p class="meta">Cloud review does not independently verify recovery or retrieve unapproved cluster facts. Reopened local reports need the original log supplied again.</p>`;
-    const cloudOfferHtml = isLocal ? `<section class="box cloud-review-offer" aria-labelledby="cloud-review-title">
-        <h2 id="cloud-review-title">Get a second assessment with cloud review</h2>
-        <p>Preview and edit the excerpts you want to share. The cloud assessment returns in this report and may ask for more evidence.</p>
+    // The one account-free cloud review is worth most where the local engine is unsure,
+    // so the offer is prominent there and a quiet second-opinion link elsewhere.
+    const localUnsure = localAnswerIsUnsure(d, meta, fix, cloudQuestions.length);
+    const cloudOfferHtml = !isLocal ? '' : localUnsure ? `<section class="box cloud-review-offer" aria-labelledby="cloud-review-title">
+        <h2 id="cloud-review-title">The local engine is not sure. Get a second assessment with cloud review</h2>
+        <p>An AI review reads the evidence from your log and can separate the remaining causes. Preview and edit the excerpts first; the assessment returns in this report and may ask for more evidence.</p>
         <button type="button" class="btn" data-cmd="escalateCloud">Preview cloud review</button>
-        <p class="meta">Nothing is sent until you approve on the next screen. One account-free review may be available, subject to server limits. Local-only mode blocks uploads. A second assessment does not guarantee a root cause.</p>
-    </section>` : '';
+        <p class="meta">Nothing is sent until you approve on the next screen. Without an account this uses your one free cloud review, subject to daily limits. Local-only mode blocks uploads. A second assessment does not guarantee a root cause.</p>
+    </section>` : `<details class="box cloud-review-offer"><summary>Want a second opinion? Get a second assessment with cloud review</summary>
+        <p>The local engine is confident in this answer. If it does not fit your stack or the fix did not work, a cloud review can reassess the evidence and may ask for more evidence.</p>
+        <button type="button" class="btn ghost" data-cmd="escalateCloud">Preview cloud review</button>
+        <p class="meta">Nothing is sent until you approve. Without an account this uses your one free cloud review. Local-only mode blocks uploads.</p>
+    </details>`;
     const nextActionHtml = `<section class="next-actions" aria-label="Report actions"><div class="next-heading"><strong>Work with this report locally</strong><span class="meta">Copy, export or prepare feedback in your editor. Nothing is submitted automatically.</span></div>
         <button type="button" class="btn" data-cmd="diagnoseOwnLog">Diagnose a different log</button>
         <button type="button" class="btn ghost" data-cmd="copyIncidentReport">Copy report</button>
@@ -391,7 +417,7 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
         : 'Not established');
     const incidentOverview = `<section class="incident-overview" aria-label="Incident overview">
         <div><span class="metric-label">Analysis</span><strong>${isLocal ? 'Local engine' : 'Cloud review'}</strong><span class="meta">${isLocal ? 'No log upload' : 'Requested cloud analysis'}</span></div>
-        <div><span class="metric-label">Evidence</span><strong>${evidence.length} matched lines</strong><span class="meta">${chain.length} causal events</span></div>
+        <div><span class="metric-label">Evidence</span><strong>${evidence.length} matched line${evidence.length === 1 ? '' : 's'}</strong><span class="meta">${chain.length} causal event${chain.length === 1 ? '' : 's'}</span></div>
         <div><span class="metric-label">Initiating event</span><strong>${escapeHtml(initiatingLabel)}</strong><span class="meta">${initiatingEvent || hasStructuredInitiator ? 'Attributed from this log' : 'Do not infer a rank without evidence'}</span></div>
     </section>`;
 
@@ -515,6 +541,7 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
     .brand { font-size: 16px; font-weight: 600; letter-spacing: -.4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .brand > .meta { color: var(--denpex-text-dim); font-weight: 400; font-size: 12px; }
     ${DENPEX_WORDMARK_CSS}
+    ${LOG_INSIGHTS_CSS}
     .header-pills { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
     .status-pill { display: inline-flex; align-items: center; gap: 6px; font: 500 11.5px/1.2 var(--vscode-font-family); color: #D4D4D4; }
     .status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #22C55E; }
@@ -637,7 +664,9 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
     </div><div>
     ${section('Evidence and causal chain', tracebackBody || '<p>No causal chain or matched evidence was returned. Collect the initiating error before attributing a rank.</p>', true, 'causal-chain')}
     </div></div>
+    ${renderLogInsightsHtml(d.logInsights)}
     ${nextActionHtml}
+    <section class="box" aria-labelledby="slack-title"><h2 id="slack-title">Send this to your team in Slack</h2><p>Post this diagnosis to a Slack channel you choose: what failed, where it started, the fix and what the crash cost. The first time, Slack asks you to add Denpex and pick the channel. After that your team can also diagnose crash logs right in Slack, free and with no account.</p><p class="meta">You see the message before it is posted. Only that summary is sent, straight from your editor to Slack. The log itself is not sent, and nothing passes through Denpex.</p><button type="button" class="btn" data-cmd="sendToSlack">Send to Slack</button><button type="button" class="btn ghost" data-cmd="open" data-text="${escapeHtml(attribute(SLACK_URL, 'slack'))}">About Denpex in Slack</button></section>
     <section class="box" aria-labelledby="followup-title"><h2 id="followup-title">Ask about this result</h2><p class="meta">Local mode stays on this machine. Connected cloud follow-ups continue the same incident after an editable preview and Send approval.</p><label for="followup-input">Question about cause, evidence or verification</label><textarea id="followup-input" rows="2" placeholder="What evidence supports this?" style="width:100%;box-sizing:border-box;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-focusBorder);padding:10px;font:inherit"></textarea><button type="button" id="ask-local" class="btn">Ask about this diagnosis</button><div id="local-conversation" role="log" aria-label="Local follow-up conversation" aria-live="polite"></div></section>
     <section class="box" aria-labelledby="save-title"><h2 id="save-title">Keep this investigation</h2><p class="meta">Save only when you choose. Saved reports include evidence excerpts and stay on the extension host until deleted.</p><button type="button" class="btn" data-cmd="saveInvestigation">Save locally</button><button type="button" class="btn ghost" data-cmd="exportInvestigation">Export report</button><button type="button" class="btn ghost" data-cmd="reopenSaved">Reopen</button><button type="button" class="btn ghost" data-cmd="assessRecovery">Record recovery result</button><button type="button" class="btn ghost" data-cmd="deleteSaved">Delete saved report</button></section>
     ${trailBody ? section('Why this answer (audit trail)', trailBody) : ''}
