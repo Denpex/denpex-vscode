@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.66
+
+- **Save diagnosis dossiers and export Markdown postmortems.** Completed diagnosis reports now include quick actions to save the dossier to a $0 Free account (any email), request a 30-day Team evaluation, or copy a GitHub/Slack Markdown postmortem summary.
+- Synchronize the bundled offline engine (`2026.11.17+serving-epistemic-finalization-r4`).
+- Preserve the existing extension identity and published grid icon.
+
 ## 1.4.65
 
 - Version aligned with the Denpex browser extension 1.4.65. No functional changes in the editor extension.
