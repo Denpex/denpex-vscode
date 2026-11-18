@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.67
+
+- **Start the 30-day Team trial directly inside your editor.** Completed diagnosis reports in VS Code, Cursor, and Windsurf now expose an in-editor Team trial flow without leaving your IDE or hitting browser approval dead-ends.
+- Fixed the stale trial retry notice to consistently reflect the 30-day Team tier, and synchronized the bundled offline engine (`2026.11.18+real-world-benchmark-r1`) with discriminating test and false-path evidence display.
+- Preserve the existing extension identity and published grid icon.
+
 ## 1.4.66
 
 - **Save diagnosis dossiers and export Markdown postmortems.** Completed diagnosis reports now include quick actions to save the dossier to a $0 Free account (any email), request a 30-day Team evaluation, or copy a GitHub/Slack Markdown postmortem summary.

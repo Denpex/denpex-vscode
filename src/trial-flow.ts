@@ -115,7 +115,7 @@ export function interpretExtensionTrialRequestResult(
             kind: 'pending',
             message:
                 serverMessage ||
-                'Could not issue a 30-day Datacenter trial right now. Please retry shortly or contact support@denpex.com. Local diagnosis remains available.',
+                'Could not issue a 30-day Team trial right now. Please retry shortly or contact support@denpex.com. Local diagnosis remains available.',
             recordFunnel: false,
         };
     }

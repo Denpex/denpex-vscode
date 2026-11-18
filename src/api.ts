@@ -67,7 +67,7 @@ export function attribute(url: string, surface: FunnelSurface): string {
  * load it in plain Node). The drift that made it wrong is caught instead by
  * scripts/__tests__/vscode-funnel-parity.test.ts, which fails if the two disagree.
  */
-export const CLIENT_VERSION = '1.4.66';
+export const CLIENT_VERSION = '1.4.67';
 
 export const SITE_URL = 'https://denpex.com';
 export const DASHBOARD_URL = 'https://denpex.com/dashboard';
@@ -139,6 +139,8 @@ export interface FixPayload {
     confidenceBand?: string | null;
     /** Checkpoint the engine believes is safe to resume from. */
     resumeFrom?: string | null;
+    discriminatingTest?: { name?: string; goal?: string; steps?: string[]; captureFields?: string[] } | null;
+    falsePaths?: string[];
 }
 
 /** One competing explanation the engine scored, with the evidence on both sides. */
@@ -193,6 +195,8 @@ export interface DiagnoseResponse {
     engineVersion?: string;
     diagnosisId?: string;
     jobName?: string;
+    discriminatingTest?: { name?: string; goal?: string; steps?: string[]; captureFields?: string[] } | null;
+    falsePaths?: string[];
     remaining?: number;
     cost?: unknown;
     costHeadline?: string | null;

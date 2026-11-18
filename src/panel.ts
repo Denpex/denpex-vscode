@@ -216,7 +216,7 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
     // so the offer is prominent there and a quiet second-opinion link elsewhere.
     const localUnsure = localAnswerIsUnsure(d, meta, fix, cloudQuestions.length);
     const saveAndTeamHtml = hasDiagnosis && showTrialOffer && !d.teamContinuation
-        ? `<section class="box" id="save-and-team-offer" aria-labelledby="save-team-title"><h2 id="save-team-title">Save or escalate this incident</h2><p>Create a free <strong>$0 Denpex account</strong> with any email (work or personal) to save diagnostic dossiers, or open the <strong>30-day Team evaluation</strong> with a work email for 50 cloud diagnoses/day and Slack alerts.</p><div class="btns"><button type="button" class="btn" data-cmd="open" data-text="${escapeHtml(attribute(SITE_URL + '/signup?plan=free&source=vscode', 'panel'))}">Save dossier ($0 Free, any email)</button><button type="button" class="btn ghost" data-cmd="open" data-text="${escapeHtml(attribute(SITE_URL + '/evaluation?source=vscode#start-evaluation', 'trial'))}">30-day Team evaluation</button><button type="button" class="btn ghost" data-cmd="copyIncidentReport">Copy Markdown postmortem</button></div></section>`
+        ? `<section class="box" id="save-and-team-offer" aria-labelledby="save-team-title"><h2 id="save-team-title">Save or escalate this incident</h2><p>Create a free <strong>$0 Denpex account</strong> with any email (work or personal) to save diagnostic dossiers, or start a <strong>30-day Team trial inside your editor</strong> with a work email for 50 cloud diagnoses/day and Slack alerts.</p><div class="btns"><button type="button" class="btn" data-cmd="startTrial">Start 30-day Team trial in editor (no card)</button><button type="button" class="btn ghost" data-cmd="open" data-text="${escapeHtml(attribute(SITE_URL + '/signup?plan=free&source=vscode', 'panel'))}">Save dossier ($0 Free, any email)</button><button type="button" class="btn ghost" data-cmd="copyIncidentReport">Copy Markdown postmortem</button></div></section>`
         : '';
 
     const cloudOfferHtml = !isLocal ? '' : localUnsure ? `<section class="box cloud-review-offer" aria-labelledby="cloud-review-title">
@@ -325,12 +325,22 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
     const applicability = fr.remedyApplicability;
     const applicabilityHtml = applicability && typeof applicability.scope === 'string' && Array.isArray(applicability.prerequisites)
         ? `<div class="action"><h3>${applicability.status === 'needs-evidence' ? 'Evidence needed before a complete remedy' : 'When this recommendation applies'}</h3><p>${escapeHtml(applicability.scope)}</p><ul>${applicability.prerequisites.map((value:unknown)=>`<li>${escapeHtml(value)}</li>`).join('')}</ul><p><strong>Recovery check:</strong> ${escapeHtml(applicability.verification)}</p><p>This recommendation does not authorize remote execution or certify workload recovery.</p></div>` : '';
+    const discTest = fix.discriminatingTest || d.discriminatingTest;
+    const discHtml = discTest?.name || discTest?.steps?.length
+        ? `<div class="action"><strong>Discriminating test: ${escapeHtml(discTest.name || 'Controlled check')}</strong>${discTest.goal ? `<p>${escapeHtml(discTest.goal)}</p>` : ''}${discTest.steps?.length ? `<ol>${discTest.steps.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ol>` : ''}</div>`
+        : '';
+    const falsePathList = Array.isArray(d.falsePaths) && d.falsePaths.length ? d.falsePaths : (Array.isArray(fix.falsePaths) ? fix.falsePaths : []);
+    const falsePathHtml = falsePathList.length
+        ? `<div class="action"><strong>Ruled out / false paths</strong><ul>${falsePathList.map(fp => `<li>${escapeHtml(fp)}</li>`).join('')}</ul></div>`
+        : '';
     const actionsBody = [
         applicabilityHtml,
         incidentLink,
         actionBlock('Primary fix', fix.action),
         actionBlock('If that doesn\'t work', fix.fallbackAction),
         actionBlock('Emergency mitigation', fix.emergencyAction),
+        discHtml,
+        falsePathHtml,
         fix.verificationInstructions ? `<div class="action"><strong>Manual verification</strong><p>${escapeHtml(fix.verificationInstructions)}</p></div>` : actionBlock('Verify the fix', fix.verificationCommand),
         fix.prevention ? `<div class="action"><strong>Prevention</strong><p>${escapeHtml(fix.prevention)}</p></div>` : '',
         steps,
