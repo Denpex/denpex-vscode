@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.68
+
+- **Synced offline canonical engine (`2026.11.24+overnight-moat-r15`).** Bundles rejected-theory headline preservation, Decision-Driven Deep Research Moat routing, system-first LKG delta and NCCL sequence diagnostics, and async Xid / serving transport-fallback detectors for offline analysis across VS Code, Cursor, and Windsurf.
+- **Broader incident intake matching.** Accepts timed-out vs. healthy comparison tables, silent generation failures, hang reports, and host resource exhaustion reports alongside stack traces, and ships updated multi-turn reinvestigation continuity.
+- **Bundled runtime parity.** Aligns extension offline diagnostics with `denpex-mcp` `0.2.49` and `denpex` `1.1.38`.
+
 ## 1.4.67
 
 - **Start the 30-day Team trial directly inside your editor.** Completed diagnosis reports in VS Code, Cursor, and Windsurf now expose an in-editor Team trial flow without leaving your IDE or hitting browser approval dead-ends.
