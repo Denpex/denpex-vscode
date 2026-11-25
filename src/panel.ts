@@ -597,6 +597,8 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
     p, strong, summary, .action-copy { overflow-wrap: anywhere; }
     .btn { white-space: normal; max-width: 100%; }
     textarea { max-width: 100%; }
+    textarea::placeholder { color: #6E6E6E; opacity: 1; }
+    textarea:focus::placeholder { color: transparent; }
     .console-nav details { margin: 0; border: 0; background: transparent; display: inline-block; position: relative; overflow: visible; }
     .console-nav details summary { padding: 5px 9px; font-size: 12px; font-weight: 400; color: var(--denpex-text-dim); background: transparent; }
     #recommended-actions, #causal-chain { scroll-margin-top: 20px; }
@@ -635,9 +637,11 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
         <p>Unlimited local log diagnosis. Cloud review is a separate, optional action.</p>
         <form id="console-input-form">
             <label for="console-input">Paste a log to diagnose</label>
-            <textarea id="console-input" rows="6" placeholder="Paste the error and surrounding lines" style="display:block;width:100%;margin:10px 0;padding:12px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,var(--vscode-focusBorder));font:inherit;resize:vertical">${escapeHtml(preparedText)}</textarea>
+            <textarea id="console-input" rows="6" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste crash log here (stays local, 0 uploads), e.g. [rank3] torch.OutOfMemoryError: CUDA out of memory..." style="display:block;width:100%;margin:10px 0;padding:12px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border,var(--vscode-focusBorder));font:inherit;resize:vertical">${escapeHtml(preparedText)}</textarea>
             <button type="submit" class="btn">Diagnose log locally</button>
+            <button type="button" class="btn ghost" data-cmd="diagnoseClipboard">Paste clipboard</button>
             <button type="button" class="btn ghost" data-cmd="consoleSample">Try a sample</button>
+            <button type="button" class="btn ghost" id="console-clear">Clear</button>
             <p id="console-status" role="status" aria-live="polite"></p>
         </form>
     </section>
@@ -682,7 +686,7 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
     ${renderLogInsightsHtml(d.logInsights)}
     ${nextActionHtml}
     <section class="box" aria-labelledby="slack-title"><h2 id="slack-title">Send this to your team in Slack</h2><p>Post this diagnosis to a Slack channel you choose: what failed, where it started, the fix and what the crash cost. The first time, Slack asks you to add Denpex and pick the channel. After that your team can also diagnose crash logs right in Slack, free and with no account.</p><p class="meta">You see the message before it is posted. Only that summary is sent, straight from your editor to Slack. The log itself is not sent, and nothing passes through Denpex.</p><button type="button" class="btn" data-cmd="sendToSlack">Send to Slack</button><button type="button" class="btn ghost" data-cmd="open" data-text="${escapeHtml(attribute(SLACK_URL, 'slack'))}">About Denpex in Slack</button></section>
-    <section class="box" aria-labelledby="followup-title"><h2 id="followup-title">Ask about this result</h2><p class="meta">Local mode stays on this machine. Connected cloud follow-ups continue the same incident after an editable preview and Send approval.</p><label for="followup-input">Question about cause, evidence or verification</label><textarea id="followup-input" rows="2" placeholder="What evidence supports this?" style="width:100%;box-sizing:border-box;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-focusBorder);padding:10px;font:inherit"></textarea><button type="button" id="ask-local" class="btn">Ask about this diagnosis</button><div id="local-conversation" role="log" aria-label="Local follow-up conversation" aria-live="polite"></div></section>
+    <section class="box" aria-labelledby="followup-title"><h2 id="followup-title">Ask about this result</h2><p class="meta">Local mode stays on this machine. Connected cloud follow-ups continue the same incident after an editable preview and Send approval.</p><label for="followup-input">Question about cause, evidence or verification</label><textarea id="followup-input" rows="2" spellcheck="false" placeholder="What evidence supports this?" style="width:100%;box-sizing:border-box;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-focusBorder);padding:10px;font:inherit"></textarea><button type="button" id="ask-local" class="btn">Ask about this diagnosis</button><div id="local-conversation" role="log" aria-label="Local follow-up conversation" aria-live="polite"></div></section>
     <section class="box" aria-labelledby="save-title"><h2 id="save-title">Keep this investigation</h2><p class="meta">Save only when you choose. Saved reports include evidence excerpts and stay on the extension host until deleted.</p><button type="button" class="btn" data-cmd="saveInvestigation">Save locally</button><button type="button" class="btn ghost" data-cmd="exportInvestigation">Export report</button><button type="button" class="btn ghost" data-cmd="reopenSaved">Reopen</button><button type="button" class="btn ghost" data-cmd="assessRecovery">Record recovery result</button><button type="button" class="btn ghost" data-cmd="deleteSaved">Delete saved report</button></section>
     ${trailBody ? section('Why this answer (audit trail)', trailBody) : ''}
     ${section('Competing Hypotheses', hypsHtml)}
@@ -713,10 +717,22 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
         form.addEventListener('submit', (event) => {
             event.preventDefault();
             if (busy) return;
-            if (input.value.trim().length < 6) { status.textContent = 'Paste at least 6 characters of error context.'; return; }
+            if (input.value.trim().length < 6) { status.textContent = 'Paste at least 6 characters of error context.'; input.focus(); return; }
             busy = true;
             status.textContent = 'Diagnosing locally. Your log stays on this machine.';
             vscode.postMessage({ command: 'diagnoseConsoleInput', text: input.value });
+        });
+        input?.addEventListener('keydown', (event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true }));
+            }
+        });
+        document.getElementById('console-clear')?.addEventListener('click', () => {
+            if (!input) return;
+            input.value = '';
+            status.textContent = '';
+            input.focus();
         });
         const clarification = document.getElementById('clarification-form');
         clarification?.addEventListener('change', () => {
@@ -770,6 +786,13 @@ export function renderDiagnosis(input: DiagnoseResponse | undefined, focusSectio
             const el = e.target.closest('[data-cmd]');
             if (!el) return;
             e.preventDefault();
+            if ((el.dataset.cmd === 'copy' || el.dataset.cmd === 'copyIncidentReport') && el.tagName === 'BUTTON') {
+                if (!el.dataset.defaultLabel) el.dataset.defaultLabel = el.textContent || 'Copy';
+                el.textContent = 'Copied!';
+                setTimeout(() => {
+                    if (el.textContent === 'Copied!') el.textContent = el.dataset.defaultLabel || 'Copy';
+                }, 1400);
+            }
             vscode.postMessage({
                 command: el.dataset.cmd,
                 qid: el.dataset.qid || '',

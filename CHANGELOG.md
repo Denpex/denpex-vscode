@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.69
+
+- **Paste log directly in the sidebar with clean empty-on-focus input.** Added an inline local paste-log box right at the top of the VS Code / Open VSX sidebar with `Ctrl+Enter` / `Cmd+Enter` support, `spellcheck="false"`, faint gray placeholder text that clears on focus, `Paste clipboard` and `Clear` Console buttons, and `"Copied!"` feedback on copy actions.
+- **Complete conversion ladder.** Added a direct `$0` Free account link (for any email) alongside the zero-card 30-day Team trial inside the extension.
+- Preserve the existing extension identity and published grid icon.
+
 ## 1.4.68
 
 - **Synced offline canonical engine (`2026.11.24+overnight-moat-r15`).** Bundles rejected-theory headline preservation, Decision-Driven Deep Research Moat routing, system-first LKG delta and NCCL sequence diagnostics, and async Xid / serving transport-fallback detectors for offline analysis across VS Code, Cursor, and Windsurf.

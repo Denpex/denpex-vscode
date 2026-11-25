@@ -158,6 +158,14 @@ export async function activate(context: vscode.ExtensionContext) {
     register('denpex.prepareConsole', (text: unknown) => {
         if (typeof text === 'string' && Buffer.byteLength(text) <= 65536) openPanel(undefined, undefined, text);
     });
+    register('denpex.diagnoseSidebarText', (text: unknown) => {
+        if (typeof text === 'string' && text.trim().length >= MIN_LOG_CHARS) {
+            void runDiagnosis(text, 'sidebar-paste');
+        }
+    });
+    register('denpex.openFreeSignup', () => {
+        void vscode.env.openExternal(vscode.Uri.parse(attribute(`${SITE_URL}/signup?plan=free`, 'panel')));
+    });
     register('denpex.openFleet', () => openWorkspace(context, 'fleet'));
     register('denpex.openTopology', () => openWorkspace(context, 'topology'));
 
@@ -911,6 +919,9 @@ function openPanel(result?: DiagnoseResponse, focusSection?: string, preparedTex
             }
             case 'consoleSample':
                 await vscode.commands.executeCommand('denpex.runSample', 'nccl-rank-oom');
+                break;
+            case 'diagnoseClipboard':
+                await vscode.commands.executeCommand('denpex.diagnoseClipboard');
                 break;
             case 'copy':
                 if (message.text) await vscode.env.clipboard.writeText(message.text);
